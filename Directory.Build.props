@@ -1,0 +1,25 @@
+<Project>
+  <!-- Only apply SplitGM product settings to SplitGM projects. The external
+       UndertaleModTool projects retain their own compiler and assembly settings. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'SplitGM.Core' Or '$(MSBuildProjectName)' == 'SplitGM.Gui'">
+    <LangVersion>13.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <DebugType>embedded</DebugType>
+    <Platforms>AnyCPU;x64</Platforms>
+    <Company>sonic Fan Tech</Company>
+    <Product>SplitGM-VM Decompiler</Product>
+    <Copyright>Copyright © 2026 sonic Fan Tech and contributors</Copyright>
+    <Version>0.4.0</Version>
+    <AssemblyVersion>0.4.0.0</AssemblyVersion>
+    <FileVersion>0.4.0.0</FileVersion>
+  </PropertyGroup>
+
+  <!-- Underanalyzer normally has no explicit Platforms list. Declaring x64 here
+       lets Visual Studio use the same platform as the rest of the solution. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Underanalyzer'">
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+</Project>

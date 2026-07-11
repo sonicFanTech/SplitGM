@@ -1,0 +1,83 @@
+﻿SplitGM-VM Decompiler v0.4.0 release build
+Started: 2026-07-11T08:13:24.9080793-06:00
+Runtime: win-x64
+Platform: x64
+Self-contained: false
+Solution: L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\SplitGM-VM-Decompiler.sln
+
+Build log: L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\Logs\Build-2026-07-11_08-13-24.log
+Cleaning stale Visual Studio, bin, and obj data...
+
+=== Restore solution ===
+dotnet restore L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\SplitGM-VM-Decompiler.sln -p:Platform=x64
+  Determining projects to restore...
+  Restored L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\Underanalyzer\Underanalyzer\Underanalyzer.csproj (in 348 ms).
+  Restored L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\UndertaleModLib\UndertaleModLib.csproj (in 348 ms).
+  Restored L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\src\SplitGM.Core\SplitGM.Core.csproj (in 348 ms).
+  Restored L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\src\SplitGM.Gui\SplitGM.Gui.csproj (in 364 ms).
+
+=== Build Underanalyzer ===
+dotnet build L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\Underanalyzer\Underanalyzer\Underanalyzer.csproj -c Release -p:Platform=x64 --no-restore
+  Underanalyzer -> L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\Underanalyzer\Underanalyzer\bin\x64\Release\netstandard2.1\Underanalyzer.dll
+  Underanalyzer -> L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\Underanalyzer\Underanalyzer\bin\x64\Release\net10.0\Underanalyzer.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:06.62
+
+=== Build UndertaleModLib ===
+dotnet build L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\UndertaleModLib\UndertaleModLib.csproj -c Release -p:Platform=x64 --no-restore
+  The filename, directory name, or volume label syntax is incorrect.
+  Underanalyzer -> L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\Underanalyzer\Underanalyzer\bin\x64\Release\net10.0\Underanalyzer.dll
+  UndertaleModLib -> L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\UndertaleModLib\bin\x64\Release\net10.0\UndertaleModLib.dll
+  The package UndertaleModLib.1.0.0 is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.
+  Successfully created package 'L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\UndertaleModLib\bin\x64\Release\UndertaleModLib.1.0.0.nupkg'.
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:09.47
+
+=== Build SplitGM solution ===
+dotnet build L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\SplitGM-VM-Decompiler.sln -c Release -p:Platform=x64 --no-restore
+  The filename, directory name, or volume label syntax is incorrect.
+  Underanalyzer -> L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\Underanalyzer\Underanalyzer\bin\x64\Release\netstandard2.1\Underanalyzer.dll
+  Underanalyzer -> L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\Underanalyzer\Underanalyzer\bin\x64\Release\net10.0\Underanalyzer.dll
+  UndertaleModLib -> L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\UndertaleModLib\bin\x64\Release\net10.0\UndertaleModLib.dll
+  The package UndertaleModLib.1.0.0 is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.
+  Successfully created package 'L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\UndertaleModLib\bin\x64\Release\UndertaleModLib.1.0.0.nupkg'.
+  SplitGM.Core -> L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\src\SplitGM.Core\bin\x64\Release\net10.0\SplitGM.Core.dll
+  SplitGM.Gui -> L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\src\SplitGM.Gui\bin\x64\Release\net10.0-windows\SplitGM-VM-Decompiler.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:16.81
+
+=== Publish GUI ===
+dotnet publish L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\src\SplitGM.Gui\SplitGM.Gui.csproj -c Release -r win-x64 --self-contained false -p:Platform=x64 -o L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\artifacts\win-x64\SplitGM
+  Determining projects to restore...
+  Restored L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\Underanalyzer\Underanalyzer\Underanalyzer.csproj (in 411 ms).
+  Restored L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\UndertaleModLib\UndertaleModLib.csproj (in 415 ms).
+  Restored L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\src\SplitGM.Core\SplitGM.Core.csproj (in 411 ms).
+  Restored L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\src\SplitGM.Gui\SplitGM.Gui.csproj (in 432 ms).
+  The filename, directory name, or volume label syntax is incorrect.
+  Underanalyzer -> L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\Underanalyzer\Underanalyzer\bin\x64\Release\net10.0\Underanalyzer.dll
+  The filename, directory name, or volume label syntax is incorrect.
+  UndertaleModLib -> L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\UndertaleModLib\bin\x64\Release\net10.0\win-x64\UndertaleModLib.dll
+  UndertaleModLib -> L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\UndertaleModLib\bin\x64\Release\net10.0\UndertaleModLib.dll
+  The package UndertaleModLib.1.0.0 is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.
+  Successfully created package 'L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\UndertaleModLib\bin\x64\Release\UndertaleModLib.1.0.0.nupkg'.
+  The package UndertaleModLib.1.0.0 is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.
+  Successfully created package 'L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\External\UndertaleModTool\UndertaleModLib\bin\x64\Release\UndertaleModLib.1.0.0.nupkg'.
+  SplitGM.Core -> L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\src\SplitGM.Core\bin\x64\Release\net10.0\SplitGM.Core.dll
+  SplitGM.Gui -> L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\src\SplitGM.Gui\bin\x64\Release\net10.0-windows\win-x64\SplitGM-VM-Decompiler.dll
+  SplitGM.Gui -> L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\artifacts\win-x64\SplitGM\
+
+Release output: L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\artifacts\win-x64
+Build log: L:\CS\project\SplitGM-VM Decompiler\v0.4.0-source\Logs\Build-2026-07-11_08-13-24.log
+Finished: 2026-07-11T08:14:19.2920384-06:00
