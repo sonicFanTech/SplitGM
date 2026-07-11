@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>SplitGM.Core</AssemblyName>
+    <RootNamespace>SplitGM.Core</RootNamespace>
+    <Description>Core resource browsing, GameMaker loading, VM disassembly, GML decompilation, searching, and project export services for SplitGM-VM Decompiler.</Description>
+    <UndertaleModToolRoot>$(MSBuildThisFileDirectory)..\..\External\UndertaleModTool</UndertaleModToolRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.14.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Keep both references explicit. SplitGM.Core directly uses types from each library. -->
+    <ProjectReference Include="$(UndertaleModToolRoot)\Underanalyzer\Underanalyzer\Underanalyzer.csproj" />
+    <ProjectReference Include="$(UndertaleModToolRoot)\UndertaleModLib\UndertaleModLib.csproj" />
+  </ItemGroup>
+
+  <Target Name="CheckSplitGMDependencies" BeforeTargets="ResolveProjectReferences">
+    <Error Condition="!Exists('$(UndertaleModToolRoot)\Underanalyzer\Underanalyzer\Underanalyzer.csproj')"
+           Text="Underanalyzer is missing. Run Setup-Dependencies.ps1 from the solution directory." />
+    <Error Condition="!Exists('$(UndertaleModToolRoot)\UndertaleModLib\UndertaleModLib.csproj')"
+           Text="UndertaleModLib is missing. Run Setup-Dependencies.ps1 from the solution directory." />
+  </Target>
+</Project>
