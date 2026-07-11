@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SyntaxDefinition name="GameMaker VM Assembly" extensions=".asm" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+  <Color name="Comment" foreground="#75906F" fontStyle="italic" />
+  <Color name="Label" foreground="#D3A6FF" fontWeight="bold" />
+  <Color name="Opcode" foreground="#73C8FF" fontWeight="bold" />
+  <Color name="Number" foreground="#B6D58A" />
+  <RuleSet>
+    <Span color="Comment" begin=";" end="$" />
+    <Rule color="Label">^\s*(:\[[^\]]+\]|&gt;.*)$</Rule>
+    <Keywords color="Opcode">
+      <Word>push</Word><Word>pushi</Word><Word>pushloc</Word><Word>pushglb</Word><Word>pushbltn</Word>
+      <Word>pop</Word><Word>popz</Word><Word>dup</Word><Word>call</Word><Word>callv</Word>
+      <Word>b</Word><Word>bf</Word><Word>bt</Word><Word>pushenv</Word><Word>popenv</Word>
+      <Word>add</Word><Word>sub</Word><Word>mul</Word><Word>div</Word><Word>mod</Word><Word>rem</Word>
+      <Word>and</Word><Word>or</Word><Word>xor</Word><Word>not</Word><Word>neg</Word>
+      <Word>cmp</Word><Word>conv</Word><Word>ret</Word><Word>exit</Word><Word>break</Word>
+    </Keywords>
+    <Rule color="Number">\b(0x[0-9A-Fa-f]+|-?\d+)\b</Rule>
+  </RuleSet>
+</SyntaxDefinition>

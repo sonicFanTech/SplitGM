@@ -1,0 +1,56 @@
+<Window x:Class="SplitGM.Gui.OperationProgressWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SplitGM Operation" Width="720" Height="470" MinWidth="620" MinHeight="390"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize"
+        Background="{StaticResource WindowBrush}" Closing="Window_Closing">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <StackPanel>
+            <TextBlock x:Name="OperationTitleText" Text="Working..." FontSize="23" FontWeight="Bold"/>
+            <TextBlock x:Name="OperationDescriptionText" Margin="0,4,0,0" TextWrapping="Wrap"
+                       Foreground="{StaticResource MutedTextBrush}"/>
+        </StackPanel>
+        <Border Grid.Row="1" Margin="0,14,0,10" Padding="12" Background="{StaticResource PanelAltBrush}"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="145"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Text="Input / output" Foreground="{StaticResource MutedTextBrush}"/>
+                <TextBlock x:Name="PathText" Grid.Column="1" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="1" Text="Stage" Foreground="{StaticResource MutedTextBrush}" Margin="0,6,0,0"/>
+                <TextBlock x:Name="StageText" Grid.Row="1" Grid.Column="1" Margin="0,6,0,0"/>
+                <TextBlock Grid.Row="2" Text="Current item" Foreground="{StaticResource MutedTextBrush}" Margin="0,6,0,0"/>
+                <TextBlock x:Name="CurrentItemText" Grid.Row="2" Grid.Column="1" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="3" Text="Elapsed" Foreground="{StaticResource MutedTextBrush}" Margin="0,6,0,0"/>
+                <TextBlock x:Name="ElapsedText" Grid.Row="3" Grid.Column="1" Margin="0,6,0,0"/>
+            </Grid>
+        </Border>
+        <ProgressBar x:Name="OperationProgressBar" Grid.Row="2" Height="12" Minimum="0" Maximum="100"
+                     Foreground="{StaticResource AccentBrush}" Background="#080B11"/>
+        <Grid Grid.Row="3" Margin="0,7,0,9">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBlock x:Name="ProgressMessageText" FontWeight="SemiBold" TextWrapping="Wrap"/>
+            <TextBlock x:Name="ProgressCountText" Grid.Column="1" Margin="12,0,0,0"
+                       Foreground="{StaticResource MutedTextBrush}"/>
+        </Grid>
+        <TextBox x:Name="OperationLogTextBox" Grid.Row="4" IsReadOnly="True" AcceptsReturn="True"
+                 TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                 Background="{StaticResource EditorBrush}"/>
+        <Grid Grid.Row="5" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBlock x:Name="CompletionText" VerticalAlignment="Center" Foreground="{StaticResource MutedTextBrush}"/>
+            <Button x:Name="CancelOperationButton" Grid.Column="1" Content="Cancel" Click="Cancel_Click"/>
+            <Button x:Name="CloseButton" Grid.Column="2" Content="Close" Margin="0" IsEnabled="False" Click="Close_Click"/>
+        </Grid>
+    </Grid>
+</Window>

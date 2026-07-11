@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- Keep these explicit here: WPF creates a temporary project with a different
+         MSBuildProjectName during XAML compilation, so the conditional settings in
+         Directory.Build.props are not sufficient by themselves. -->
+    <LangVersion>13.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>SplitGM-VM-Decompiler</AssemblyName>
+    <RootNamespace>SplitGM.Gui</RootNamespace>
+    <Description>Windows read-only resource viewer and extractor frontend for SplitGM-VM Decompiler v0.4.0.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SplitGM.Core\SplitGM.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
+    <PackageReference Include="NAudio" Version="2.3.0" />
+    <PackageReference Include="NAudio.Vorbis" Version="1.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\GML.xshd" />
+    <EmbeddedResource Include="Resources\VMASM.xshd" />
+  </ItemGroup>
+</Project>

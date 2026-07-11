@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SyntaxDefinition name="GML" extensions=".gml" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+  <Color name="Comment" foreground="#75906F" fontStyle="italic" />
+  <Color name="String" foreground="#E8B36A" />
+  <Color name="Number" foreground="#B6D58A" />
+  <Color name="Keyword" foreground="#73C8FF" fontWeight="bold" />
+  <Color name="Constant" foreground="#D3A6FF" />
+  <RuleSet>
+    <Span color="Comment" begin="/\*" end="\*/" multiline="true" />
+    <Span color="Comment" begin="//" end="$" />
+    <Span color="String" begin="&quot;" end="&quot;" />
+    <Span color="String" begin="'" end="'" />
+    <Keywords color="Keyword">
+      <Word>if</Word><Word>else</Word><Word>for</Word><Word>while</Word><Word>do</Word>
+      <Word>until</Word><Word>repeat</Word><Word>switch</Word><Word>case</Word><Word>default</Word>
+      <Word>break</Word><Word>continue</Word><Word>return</Word><Word>exit</Word><Word>with</Word>
+      <Word>var</Word><Word>globalvar</Word><Word>function</Word><Word>constructor</Word><Word>new</Word>
+      <Word>enum</Word><Word>static</Word><Word>try</Word><Word>catch</Word><Word>finally</Word>
+      <Word>throw</Word><Word>delete</Word>
+    </Keywords>
+    <Keywords color="Constant">
+      <Word>true</Word><Word>false</Word><Word>undefined</Word><Word>noone</Word><Word>self</Word>
+      <Word>other</Word><Word>all</Word><Word>global</Word><Word>local</Word>
+    </Keywords>
+    <Rule color="Number">\b(0x[0-9A-Fa-f]+|\d+(\.\d+)?)\b</Rule>
+  </RuleSet>
+</SyntaxDefinition>
