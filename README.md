@@ -1,7 +1,5 @@
 <div align="center">
 
-<img width="1967" height="800" alt="SplitGM_SPLASH" src="https://github.com/user-attachments/assets/20a942f8-d675-4d12-a5bb-39bd511f2a71" />
-
 # SplitGM-VM Decompiler
 
 ### Read-only GameMaker VM decompilation, resource exploration, extraction, relationship analysis, and project reconstruction
