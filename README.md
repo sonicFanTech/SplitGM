@@ -18,7 +18,7 @@
 
 ---
 
-##SplitGM V0.5.0 update
+## SplitGM V0.5.0 update
 
 the v0.5.0 update of SplitGM is in the works at this time, please come back in a few days or so
 
