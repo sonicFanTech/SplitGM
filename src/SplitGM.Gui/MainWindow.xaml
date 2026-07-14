@@ -3,7 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:SplitGM.Gui"
         xmlns:avalonEdit="http://icsharpcode.net/sharpdevelop/avalonedit"
-        Title="SplitGM-VM Decompiler v0.4.0"
+        Title="SplitGM-VM Decompiler v0.5.0"
+        Icon="Resources/Brand/SplitGM.ico"
         Width="1460" Height="900" MinWidth="1080" MinHeight="700"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource WindowBrush}"
@@ -34,7 +35,7 @@
                 <MenuItem Header="Copy _diagnostic report" Click="CopyDiagnosticButton_Click"/>
             </MenuItem>
             <MenuItem Header="_Export">
-                <MenuItem x:Name="ExportButton" Header="Export _full reconstructed project..." IsEnabled="False" Click="ExportButton_Click"/>
+                <MenuItem x:Name="ExportButton" Header="Export SplitGM _extraction project..." IsEnabled="False" Click="ExportButton_Click"/>
                 <MenuItem x:Name="ExportSelectedButton" Header="Export _selected resource..." IsEnabled="False" Click="ExportSelectedButton_Click"/>
                 <MenuItem x:Name="ExportAudioGroupMenuItem" Header="Export selected _audio group..." IsEnabled="False" Click="ExportAudioGroupButton_Click"/>
                 <Separator/>
@@ -97,6 +98,10 @@
                 <MenuItem Header="_Refresh current preview" InputGestureText="F5" Click="RefreshCurrentPreview_Click"/>
             </MenuItem>
             <MenuItem Header="_Tools">
+                <MenuItem x:Name="ReconstructedYypMenuItem"
+                          Header="Decompile to Reconstructed .yyp Project..."
+                          IsEnabled="False" Click="DecompileReconstructedYypButton_Click"/>
+                <Separator/>
                 <MenuItem Header="Search _all code..." InputGestureText="Ctrl+F" Click="ShowSearchTab_Click"/>
                 <MenuItem x:Name="AnalyzeSelectedMenuItem" Header="Analyze selected _relationships" IsEnabled="False" Click="AnalyzeSelectedRelationships_Click"/>
                 <MenuItem x:Name="UnusedCandidatesMenuItem" Header="Find _unused-resource candidates" IsEnabled="False" Click="AnalyzeUnusedResources_Click"/>
@@ -118,15 +123,19 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <StackPanel>
-                    <TextBlock Text="SplitGM-VM Decompiler" FontSize="26" FontWeight="Bold"/>
-                    <TextBlock Text="Read-only GameMaker resource viewer • VM decompiler • full extraction • project reconstruction"
-                               Margin="0,4,0,0" Foreground="{StaticResource MutedTextBrush}"/>
+                <StackPanel Orientation="Horizontal">
+                    <Image Source="Resources/Brand/SplitGM_programLogo.png" Width="58" Height="58"
+                           Stretch="Uniform" Margin="0,0,14,0"/>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="SplitGM-VM Decompiler" FontSize="26" FontWeight="Bold"/>
+                        <TextBlock Text="VM decompiler • resource recovery • relationship preservation • reconstructed .yyp export"
+                                   Margin="0,4,0,0" Foreground="{StaticResource MutedTextBrush}"/>
+                    </StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Border Padding="11,6" Margin="0,0,10,0" Background="#19243A"
                             BorderBrush="{StaticResource Accent2Brush}" BorderThickness="1">
-                        <TextBlock Text="v0.4.0 RELATIONSHIP NAVIGATOR" Foreground="{StaticResource AccentBrush}"
+                        <TextBlock Text="v0.5.0 RECONSTRUCTED PROJECT EXPORT" Foreground="{StaticResource AccentBrush}"
                                    FontWeight="Bold"/>
                     </Border>
                     <TextBlock x:Name="CompatibilityBadge" Text="NO GAME LOADED"
@@ -212,7 +221,7 @@
                             BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
                         <Grid>
                             <StackPanel>
-                                <TextBlock x:Name="CurrentItemTitle" Text="Welcome to SplitGM v0.4.0"
+                                <TextBlock x:Name="CurrentItemTitle" Text="Welcome to SplitGM v0.5.0"
                                            FontSize="17" FontWeight="Bold"/>
                                 <TextBlock x:Name="CurrentItemSubtitle"
                                            Text="Open a GameMaker game to browse every recoverable resource."

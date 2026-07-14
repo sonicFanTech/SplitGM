@@ -24,7 +24,7 @@ $selfContainedValue = if ($SelfContained) { 'true' } else { 'false' }
 
 New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
 @(
-    'SplitGM-VM Decompiler v0.4.0 release build',
+    'SplitGM-VM Decompiler v0.5.0 release build',
     "Started: $(Get-Date -Format o)",
     "Runtime: $Runtime",
     "Platform: $platform",

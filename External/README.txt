@@ -1,4 +1,4 @@
-SplitGM-VM Decompiler v0.4.0 external dependencies
+SplitGM-VM Decompiler v0.5.0 external dependencies
 
 Run Setup-Dependencies.ps1 from the solution root. It downloads the pinned UndertaleModTool source and its matching Underanalyzer revision into:
 

@@ -22,9 +22,21 @@ public partial class App : Application
         // exception instead of leaving only the generic XamlParseException wrapper.
         try
         {
+            SplashScreen? splash = null;
+            try
+            {
+                splash = new SplashScreen("Resources/Brand/SplitGM_SPLASH.png");
+                splash.Show(autoClose: false, topMost: true);
+            }
+            catch
+            {
+                // A missing splash resource must never prevent the main application from opening.
+            }
+
             SplitGM.Gui.MainWindow window = new();
             MainWindow = window;
             window.Show();
+            splash?.Close(TimeSpan.FromMilliseconds(250));
         }
         catch (Exception ex)
         {

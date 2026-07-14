@@ -11,7 +11,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>SplitGM-VM-Decompiler</AssemblyName>
     <RootNamespace>SplitGM.Gui</RootNamespace>
-    <Description>Windows read-only resource viewer and extractor frontend for SplitGM-VM Decompiler v0.4.0.</Description>
+    <Description>GameMaker VM decompiler, resource recovery frontend, and reconstructed .yyp project exporter for SplitGM-VM Decompiler v0.5.0.</Description>
+    <ApplicationIcon>Resources\Brand\SplitGM.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,6 +26,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="Resources\Brand\SplitGM_programLogo.png" />
+    <Resource Include="Resources\Brand\SplitGM_SPLASH.png" />
+    <Resource Include="Resources\Brand\SplitGM.ico" />
     <EmbeddedResource Include="Resources\GML.xshd" />
     <EmbeddedResource Include="Resources\VMASM.xshd" />
   </ItemGroup>

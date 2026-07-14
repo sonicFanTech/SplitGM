@@ -40,6 +40,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         InitializeV04();
+        InitializeV05();
         ResourceTree.ItemsSource = _treeNodes;
         CodeDocumentRenderer.Configure(GmlViewer, CodeDocumentMode.Gml);
         CodeDocumentRenderer.Configure(AssemblyViewer, CodeDocumentMode.Assembly);
@@ -50,7 +51,7 @@ public partial class MainWindow : Window
 
         CodeDocumentRenderer.SetText(
             GmlViewer,
-            "// Open a GameMaker VM game to begin.\n// SplitGM v0.4.0 is a read-only resource viewer, relationship navigator, decompiler, extractor, and reconstruction tool.",
+            "// Open a GameMaker VM game to begin.\n// SplitGM v0.5.0 adds stable .splitgmproj output and experimental reconstructed .yyp project generation.",
             CodeDocumentMode.Gml,
             includeLineNumbers: true);
         CodeDocumentRenderer.SetText(
@@ -1356,6 +1357,7 @@ public partial class MainWindow : Window
         _operationCancellation?.Cancel();
         SaveWindowSettings();
         CloseOperationWindow(force: true);
+        CloseReconstructionWindow(force: true);
         CancelCurrentPreview();
         StopMediaPreview();
         _audioPlayer.Dispose();
@@ -1410,7 +1412,7 @@ public partial class MainWindow : Window
 
     private void ResetWelcomeDisplay()
     {
-        CurrentItemTitle.Text = "Welcome to SplitGM v0.4.0";
+        CurrentItemTitle.Text = "Welcome to SplitGM v0.5.0";
         CurrentItemSubtitle.Text = "Open a GameMaker game to browse every recoverable resource.";
         DetailsTextBox.Text = BuildWelcomeText();
         PreviewPropertiesTextBox.Text = BuildWelcomeText();
@@ -1463,6 +1465,7 @@ public partial class MainWindow : Window
         OpenGameButton.IsEnabled = !busy;
         CloseGameButton.IsEnabled = !busy && _session is not null;
         ExportButton.IsEnabled = !busy && _session is not null;
+        ReconstructedYypMenuItem.IsEnabled = !busy && _session is not null;
         ExportResourceTypeMenuItem.IsEnabled = !busy && _session is not null;
         ExportSelectedButton.IsEnabled = !busy && _session is not null && _currentResourceKind is not null;
         SearchButton.IsEnabled = !busy && _session is not null && !_session.Info.IsYyc;
@@ -1556,7 +1559,7 @@ public partial class MainWindow : Window
 
     private static string BuildWelcomeText()
     {
-        return "SplitGM-VM Decompiler v0.4.0\r\n" +
+        return "SplitGM-VM Decompiler v0.5.0\r\n" +
                "================================\r\n\r\n" +
                "This release adds relationship navigation, progress windows, settings, and a cleaner menu-driven interface.\r\n\r\n" +
                "• Browse resources without modifying the game.\r\n" +

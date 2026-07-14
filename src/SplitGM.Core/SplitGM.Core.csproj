@@ -3,7 +3,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>SplitGM.Core</AssemblyName>
     <RootNamespace>SplitGM.Core</RootNamespace>
-    <Description>Core resource browsing, GameMaker loading, VM disassembly, GML decompilation, searching, and project export services for SplitGM-VM Decompiler.</Description>
+    <Description>Core GameMaker loading, VM decompilation, resource recovery, relationship analysis, .splitgmproj serialization, and reconstructed .yyp generation services for SplitGM-VM Decompiler v0.5.0.</Description>
     <UndertaleModToolRoot>$(MSBuildThisFileDirectory)..\..\External\UndertaleModTool</UndertaleModToolRoot>
   </PropertyGroup>
 

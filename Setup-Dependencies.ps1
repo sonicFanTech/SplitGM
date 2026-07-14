@@ -21,7 +21,7 @@ $umtPath = Join-Path $external 'UndertaleModTool'
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('SplitGM-Dependencies-' + [Guid]::NewGuid().ToString('N'))
 $pinnedCommit = '3faad3b8f33ffad03eab1baf8cb892e90f3aa9db'
 $headers = @{
-    'User-Agent' = 'SplitGM-VM-Decompiler-v0.4.0-Dependency-Setup'
+    'User-Agent' = 'SplitGM-VM-Decompiler-v0.5.0-Dependency-Setup'
     'Accept' = 'application/vnd.github+json'
 }
 

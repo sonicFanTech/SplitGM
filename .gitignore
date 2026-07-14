@@ -1,0 +1,19 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build output
+bin/
+obj/
+artifacts/
+publish/
+
+# Dependencies installed by Setup-Dependencies.ps1
+External/UndertaleModTool/
+
+# SplitGM output
+Decompiled/
+*.log

@@ -199,6 +199,9 @@ public sealed partial class GameProjectSession
 
         int files = 0;
         long bytes = 0;
+        // Export operations use a short-lived worker so category exports can run in parallel
+        // without sharing ImageMagick texture caches between threads.
+        using TextureWorker exportTextureWorker = new();
 
         void CountFile(string path)
         {
@@ -234,7 +237,7 @@ public sealed partial class GameProjectSession
                         if (item is null)
                             continue;
                         string path = Path.Combine(spriteDirectory, $"frame_{frame:D4}.png");
-                        _textureWorker.ExportAsPNG(item, path, entry.Name, includePadding: true);
+                        exportTextureWorker.ExportAsPNG(item, path, entry.Name, includePadding: true);
                         CountFile(path);
                     }
 
@@ -294,7 +297,7 @@ public sealed partial class GameProjectSession
                 if (background?.Texture is not null)
                 {
                     string path = Path.Combine(outputDirectory, safeName + ".png");
-                    _textureWorker.ExportAsPNG(background.Texture, path, entry.Name, includePadding: true);
+                    exportTextureWorker.ExportAsPNG(background.Texture, path, entry.Name, includePadding: true);
                     CountFile(path);
                 }
                 break;
@@ -305,7 +308,7 @@ public sealed partial class GameProjectSession
                 if (font?.Texture is not null)
                 {
                     string path = Path.Combine(outputDirectory, safeName + "_atlas.png");
-                    _textureWorker.ExportAsPNG(font.Texture, path, entry.Name, includePadding: true);
+                    exportTextureWorker.ExportAsPNG(font.Texture, path, entry.Name, includePadding: true);
                     CountFile(path);
                 }
                 break;
@@ -316,7 +319,7 @@ public sealed partial class GameProjectSession
                 if (item is not null)
                 {
                     string path = Path.Combine(outputDirectory, safeName + ".png");
-                    _textureWorker.ExportAsPNG(item, path, entry.Name, includePadding: true);
+                    exportTextureWorker.ExportAsPNG(item, path, entry.Name, includePadding: true);
                     CountFile(path);
                 }
                 break;
@@ -339,7 +342,7 @@ public sealed partial class GameProjectSession
                 if (embeddedImage?.TextureEntry is not null)
                 {
                     string path = Path.Combine(outputDirectory, safeName + ".png");
-                    _textureWorker.ExportAsPNG(embeddedImage.TextureEntry, path, entry.Name, includePadding: true);
+                    exportTextureWorker.ExportAsPNG(embeddedImage.TextureEntry, path, entry.Name, includePadding: true);
                     CountFile(path);
                 }
                 break;
@@ -456,55 +459,69 @@ public sealed partial class GameProjectSession
         string categoryDirectory = Path.Combine(outputDirectory, categoryName);
         Directory.CreateDirectory(categoryDirectory);
 
-        int files = 0;
+        long files = 0;
         long bytes = 0;
         int failed = 0;
+        int completed = 0;
+        int maxWorkers = GetExportParallelism(kind);
 
-        for (int position = 0; position < entries.Count; position++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ResourceEntryInfo entry = entries[position];
-            progress?.Report(new DecompileProgress(
-                DecompileStage.ExportingResources,
-                position,
-                entries.Count,
-                $"Exporting {kind} [{position + 1:N0}/{entries.Count:N0}] {entry.Name}"));
+        Parallel.ForEach(
+            entries,
+            new ParallelOptions
+            {
+                CancellationToken = cancellationToken,
+                MaxDegreeOfParallelism = maxWorkers
+            },
+            entry =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                int started = Volatile.Read(ref completed);
+                progress?.Report(new DecompileProgress(
+                    DecompileStage.ExportingResources,
+                    started,
+                    entries.Count,
+                    $"Exporting {kind} with {maxWorkers:N0} worker(s): {entry.Name}"));
 
-            try
-            {
-                ResourceExportResult result = ExportSelectedResource(
-                    kind,
-                    entry.Index,
-                    categoryDirectory,
-                    progress: null,
-                    cancellationToken);
-                files += result.FilesWritten;
-                bytes += result.BytesWritten;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                failed++;
-                string errorPath = Path.Combine(
-                    categoryDirectory,
-                    $"{entry.Index:D6}_{OutputPathHelper.SafeFileName(entry.Name)}.error.txt");
-                File.WriteAllText(errorPath, exception.ToString(), new UTF8Encoding(false));
-                files++;
-                bytes += new FileInfo(errorPath).Length;
-            }
+                try
+                {
+                    ResourceExportResult result = ExportSelectedResource(
+                        kind,
+                        entry.Index,
+                        categoryDirectory,
+                        progress: null,
+                        cancellationToken);
+                    Interlocked.Add(ref files, result.FilesWritten);
+                    Interlocked.Add(ref bytes, result.BytesWritten);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    Interlocked.Increment(ref failed);
+                    string errorPath = Path.Combine(
+                        categoryDirectory,
+                        $"{entry.Index:D6}_{OutputPathHelper.SafeFileName(entry.Name)}.error.txt");
+                    File.WriteAllText(errorPath, exception.ToString(), new UTF8Encoding(false));
+                    Interlocked.Increment(ref files);
+                    Interlocked.Add(ref bytes, new FileInfo(errorPath).Length);
+                }
 
-            if ((position & 0x1F) == 0 && kind is (ResourceKind.Sprites or ResourceKind.Backgrounds or ResourceKind.Fonts or ResourceKind.TexturePageItems or ResourceKind.TexturePages or ResourceKind.EmbeddedImages or ResourceKind.Rooms))
-                ResetTextureWorkerUnsafe();
-        }
+                int done = Interlocked.Increment(ref completed);
+                progress?.Report(new DecompileProgress(
+                    DecompileStage.ExportingResources,
+                    done,
+                    entries.Count,
+                    $"Exported {kind} [{done:N0}/{entries.Count:N0}] {entry.Name}"));
+            });
 
         string summaryPath = Path.Combine(categoryDirectory, "SplitGM-Category-Export.txt");
         File.WriteAllText(
             summaryPath,
             $"SplitGM resource-category export{Environment.NewLine}" +
             $"Category: {kind}{Environment.NewLine}" +
+            $"Parallel workers: {maxWorkers:N0}{Environment.NewLine}" +
             $"Resources: {entries.Count:N0}{Environment.NewLine}" +
             $"Failed: {failed:N0}{Environment.NewLine}" +
             $"Files written: {files:N0}{Environment.NewLine}" +
@@ -518,7 +535,7 @@ public sealed partial class GameProjectSession
             entries.Count,
             entries.Count,
             failed == 0
-                ? $"Exported all {kind}."
+                ? $"Exported all {kind} using {maxWorkers:N0} worker(s)."
                 : $"Exported {kind} with {failed:N0} failed resource(s)."));
 
         return new ResourceExportResult(
@@ -526,8 +543,24 @@ public sealed partial class GameProjectSession
             kind,
             -1,
             $"All {kind}",
-            files,
+            checked((int)Math.Min(files, int.MaxValue)),
             bytes);
+    }
+
+    private static int GetExportParallelism(ResourceKind kind)
+    {
+        int processors = Math.Max(1, Environment.ProcessorCount);
+        // ImageMagick work is CPU and memory heavy. UMT similarly limits texture-page
+        // concurrency instead of launching one worker per logical processor.
+        return kind switch
+        {
+            ResourceKind.Sprites or ResourceKind.Backgrounds or ResourceKind.Fonts or
+            ResourceKind.TexturePageItems or ResourceKind.TexturePages or ResourceKind.EmbeddedImages
+                => Math.Clamp(processors / 2, 2, 8),
+            ResourceKind.Sounds or ResourceKind.EmbeddedAudio
+                => Math.Clamp(processors, 2, 12),
+            _ => Math.Clamp(processors, 2, 16)
+        };
     }
 
     private static string GetResourceCategoryDirectoryName(ResourceKind kind)
