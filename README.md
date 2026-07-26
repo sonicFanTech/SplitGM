@@ -1,811 +1,947 @@
 <div align="center">
 
+<img width="512" height="232" alt="SplitGM_SPLASH_v0 5 1 0" src="https://github.com/user-attachments/assets/38ecc482-9e25-46c3-8efd-028d02533596" />
+
 # SplitGM-VM Decompiler
 
-### Read-only GameMaker VM decompilation, resource exploration, extraction, relationship analysis, and reconstructed GameMaker project export
+### Read-only GameMaker VM decompilation, resource exploration, extraction, relationship analysis, TEMP launching, and reconstructed GameMaker project export
 
-[![Version](https://img.shields.io/badge/version-0.5.0-6f42c1?style=for-the-badge)](../../releases/latest)
+[![Version](https://img.shields.io/badge/version-0.5.1.0-6f42c1?style=for-the-badge)](../../releases/latest)
 [![Status](https://img.shields.io/badge/status-public%20beta-f0ad4e?style=for-the-badge)](#public-beta-and-reconstruction-status)
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64-0078d4?style=for-the-badge)](#system-requirements)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512bd4?style=for-the-badge)](#building-from-source)
-[![License](https://img.shields.io/badge/license-GPL--3.0-2ea44f?style=for-the-badge)](#license)
+[![License](https://img.shields.io/badge/license-GPL--3.0-2ea44f?style=for-the-badge)](#license-and-source-code)
 
 **[Download the latest release](../../releases/latest) · [View all releases](../../releases) · [Report a problem](../../issues)**
+
+**[Watch the SplitGM v0.5.1.0 trailer / showcase](https://www.youtube.com/watch?v=--CGDXPK9Jc)**
 
 </div>
 
 ---
 
-## SplitGM v0.5.0
+## SplitGM v0.5.1.0
 
-SplitGM v0.5.0 adds the first working **reconstructed GameMaker `.yyp` project exporter**.
+SplitGM v0.5.1.0 is the largest SplitGM update so far.
 
-A supported compiled GameMaker VM game can now be loaded, inspected, decompiled, and exported into a real GameMaker project folder containing reconstructed resources, recovered GML, project metadata, resource relationships, validation reports, and fallback data for anything SplitGM cannot represent safely.
+It adds:
 
-The generated project is intended to be:
+- a required animated startup launcher;
+- five selectable startup-display modes;
+- automatic UNDERTALE, DELTARUNE, and Generic GameMaker profiles;
+- a responsive **Run Game from TEMP** workflow;
+- detailed TEMP-run manifests and logs;
+- a hidden-by-default experimental reconstructed `.yyp` exporter;
+- safer room and project linking;
+- automatic reconstructed-project repair;
+- validation and quarantine of resources that cannot be represented safely;
+- UMT-style background scheduling for large exports;
+- real decoded-audio waveform previews;
+- and a dedicated read-only UMT-style room viewer.
 
-- openable and editable in GameMaker;
-- transparent about what was reconstructed, inferred, changed, or lost;
-- useful as a research, preservation, inspection, and repair workspace;
-- safer than silently generating invalid project data.
+The selected game remains read-only. SplitGM does not patch or overwrite the original `data.win`, game executable, or installation directory.
 
-It is **not** guaranteed to be identical to the original developer project, compile immediately, run correctly, or reproduce the original game perfectly.
+The TEMP runner creates and may rewrite only an isolated temporary copy.
+
+---
 
 ## About SplitGM
 
-**SplitGM-VM Decompiler** is a Windows desktop application for inspecting and reconstructing games made with GameMaker's VM runtime.
+**SplitGM-VM Decompiler** is a Windows desktop application for inspecting games built with GameMaker's VM runtime.
+
+It is designed for:
+
+- game-format research;
+- interoperability;
+- preservation;
+- debugging;
+- educational inspection;
+- resource recovery;
+- code and relationship analysis;
+- and creation of transparent GameMaker repair workspaces.
 
 SplitGM can:
 
-- load supported GameMaker data archives and Windows executables;
+- open supported GameMaker data archives and Windows executables;
 - reconstruct readable GML from GameMaker VM bytecode;
 - display VM assembly beside reconstructed code;
-- browse and preview game resources;
+- browse and preview resources;
 - export recoverable assets and metadata;
 - analyze relationships between code and resources;
-- create an organized SplitGM extraction project;
-- generate an experimental reconstructed GameMaker `.yyp` project.
+- export an organized SplitGM extraction project;
+- run a loaded game from an isolated TEMP copy;
+- and generate an experimental reconstructed GameMaker `.yyp` project.
 
-SplitGM is intentionally **read-only toward the selected game**. It does not patch, overwrite, recompile, or save changes back into the original `data.win`, executable, or other selected game file.
+SplitGM is built around the GameMaker research and parsing systems used by UndertaleModTool:
 
-SplitGM is built around the proven GameMaker research and parsing systems provided by:
+- **UndertaleModLib / UndertaleIO** for GameMaker loading, resource models, format detection, textures, audio, and VM disassembly;
+- **Underanalyzer** for GameMaker VM analysis and high-level GML reconstruction;
+- **UMT-compatible texture and room behavior** for cached texture recovery and read-only room rendering.
 
-- **UndertaleModLib** for GameMaker data loading, resource models, format and version handling, VM disassembly, texture access, audio handling, and related infrastructure.
-- **Underanalyzer** for GameMaker VM control-flow analysis and high-level GML reconstruction.
+SplitGM adds its own WPF interface, project workflows, viewers, relationship tools, extraction pipeline, reconstructed-project exporter, automatic repair system, TEMP-run workflow, diagnostics, and safety checks.
 
-SplitGM adds its own desktop interface, loading workflow, viewers, relationship tools, extraction system, project reconstruction pipeline, validation, progress reporting, performance controls, caching, diagnostics, and safety checks.
+---
 
-## Public beta and reconstruction status
+## Required animated launcher
 
-Version **0.5.0** is a public beta and the first SplitGM release capable of generating a real, openable GameMaker project.
+SplitGM v0.5.1.0 must be opened through:
 
-The reconstructed `.yyp` feature has been tested with a locally owned **DELTARUNE Chapter Select `data.win`**. The generated project opened in GameMaker, loaded reconstructed resources, and could be edited. After manual repairs to common decompiler artifacts, it also compiled and entered the reconstructed chapter-select room, although the rendered result was not visually accurate.
+```text
+SGMVMDLauncher.exe
+```
 
-That test proves the approach is possible, but it does not prove compatibility with every GameMaker title.
+The launcher:
 
-GameMaker games vary by:
+- embeds all 412 JPEG frames from the trailer ending;
+- does not require an external frame folder;
+- preserves the original 24 FPS timing;
+- decodes only the currently visible frame at the launcher display size;
+- reads the startup mode selected in SplitGM Settings;
+- starts the main application through a one-time current-user named-pipe authorization handshake;
+- waits until the main SplitGM window reports that it is visible;
+- and closes after startup finishes.
 
-- GameMaker and bytecode version;
-- VM or YYC compilation;
-- target platform;
-- extensions and native components;
-- resource formats;
-- room and layer systems;
-- shaders, sequences, particles, and timelines;
-- compiler optimizations and removed source information;
-- custom build pipelines and deliberate protection.
+Opening this file directly is intentionally blocked:
 
-Expect unsupported games, partially reconstructed resources, GML errors, name collisions, missing references, inaccurate rooms, or projects that require manual repair.
+```text
+SplitGM-VM-Decompiler.exe
+```
 
-Always keep the original files backed up, and do not distribute copyrighted game data when reporting a problem.
+The main executable requires a live authorization session created by `SGMVMDLauncher.exe`. A copied command-line argument is not enough.
 
-## Main features
+The old static WPF splash has been removed from the main executable.
 
-### GameMaker VM decompilation
+### Startup display modes
 
-- Reconstructs readable GML from supported GameMaker VM bytecode.
-- Displays raw GameMaker VM assembly beside reconstructed GML.
-- Organizes code into scripts, object events, room code, global initialization, timelines, and other code categories.
-- Reconstructs GlobalScript and GlobalInit code as script resources when possible.
-- Preserves VM assembly when high-level decompilation fails.
-- Continues processing after individual code-entry failures.
-- Records detailed decompiler failures without cancelling an entire export.
-- Detects YYC/native builds and reports when normal VM GML is unavailable.
-- Keeps raw or fallback code in the reconstructed output when it cannot be represented safely.
+Change the startup mode through:
 
-### Decompile to Reconstructed `.yyp` Project
+```text
+Tools → Settings → Startup
+```
+
+| Mode | Behavior |
+|---|---|
+| **Normal** | Plays all 412 frames. |
+| **First Half** | Plays the logo-assembly and SplitGM-title section only. |
+| **Second Half** | Plays the animated splash-image section only. |
+| **First Half Static** | Shows the completed SplitGM logo and title frame. |
+| **Second Half Static** | Shows the completed splash image and all text. |
+
+Static modes remain visible for at least two seconds and then stay visible while SplitGM finishes opening.
+
+Space, Enter, or Escape can skip the remaining animation or minimum static hold. They do not bypass launcher authorization.
+
+The launcher cannot be disabled.
+
+---
+
+## Game profiles
+
+SplitGM v0.5.1.0 includes these profile choices:
+
+- **Auto Detect**
+- **Generic GameMaker Game**
+- **UNDERTALE**
+- **DELTARUNE**
+
+The default is **Auto Detect**.
+
+Profile detection uses multiple signals, including:
+
+- input paths and containing directories;
+- internal game, display, and runner names;
+- recognized room, object, script, sprite, and code names;
+- and combinations of known resources.
+
+The current effective profile, selection method, confidence, and detection reasons are shown in SplitGM.
+
+A manual override is available for renamed, heavily modified, or incorrectly detected games.
+
+Profiles guide conservative behavior such as:
+
+- runner executable discovery;
+- TEMP sidecar discovery;
+- game-specific compatibility handling;
+- and reconstructed-project diagnostics.
+
+The **Generic GameMaker Game** profile avoids UNDERTALE- and DELTARUNE-specific assumptions.
+
+---
+
+## Run Game from TEMP
 
 Use:
+
+```text
+Tools → Run Game from TEMP
+```
+
+SplitGM creates a unique run directory under:
+
+```text
+%TEMP%\SplitGM-VM-Decompiler\GameRuns\
+```
+
+The TEMP runner:
+
+- keeps the original game files unchanged;
+- creates a temporary `data.win`;
+- copies required audio groups and runtime sidecars;
+- searches for a compatible original GameMaker runner;
+- allows manual runner selection when detection is ambiguous;
+- starts the original runner with `-game <temporary-data.win>`;
+- writes GameMaker debug output into the TEMP run;
+- keeps SplitGM responsive during preparation and while the game is running;
+- tracks the launched process in the background;
+- and writes a detailed log and `TempRunManifest.json`.
+
+Additional Tools commands can:
+
+- open the current TEMP run folder;
+- and clean old inactive TEMP runs.
+
+### Steam-enabled games
+
+When a loaded game contains Steam metadata, SplitGM records the detected Steam App ID and its source in the TEMP-run manifest.
+
+To prevent Steam from replacing the custom TEMP launch with the normal installed game, SplitGM may write the temporary data copy with GameMaker's Steam flags and Steam App ID disabled.
+
+This changes only the TEMP copy.
+
+As a result, Steam-dependent features such as these may be unavailable during a TEMP run:
+
+- Steam Overlay;
+- achievements;
+- rich presence;
+- Steam networking;
+- and other Steam API services.
+
+SplitGM does not bypass ownership, DRM, authentication, or access controls.
+
+---
+
+## Experimental reconstructed `.yyp` project export
+
+The reconstructed GameMaker project exporter is disabled by default.
+
+Enable it through:
+
+```text
+Tools → Settings → Experimental
+```
+
+Turn on:
+
+```text
+Enable Decompile to .yyp Project
+```
+
+When disabled, the command is completely absent from the Tools menu.
+
+When enabled, use:
 
 ```text
 Tools → Decompile to Reconstructed .yyp Project...
 ```
 
-This feature creates a repair-oriented GameMaker project folder from the currently loaded game.
+The first use displays an experimental-feature warning.
 
-Where recoverable and safely representable, the export can include:
+The output is intended to be:
 
-- a real GameMaker `.yyp` project file;
-- scripts and recovered global functions;
-- object resources and object-event GML;
-- room resources;
-- room creation code;
-- room instance creation and pre-create code;
-- sprites and animation frames;
-- collision masks;
-- sounds and audio groups;
-- paths;
-- project folders and resource ordering;
-- room order;
-- object physics settings and vertices;
-- sprite playback, origin, bounds, and collision settings;
-- room views, view-follow targets, room physics, and background color;
-- object sprite, parent, mask, collision-event, and room-instance relationships;
-- sound-to-audio-group relationships.
+- openable and editable in a compatible GameMaker IDE;
+- transparent about what was recovered, inferred, repaired, omitted, or lost;
+- useful as a research, preservation, inspection, and repair workspace;
+- and safer than silently generating invalid project data.
 
-The export is reconstructed rather than copied from original source files. A compiled game normally does not contain the complete original project, comments, formatting, folder layout, macros, extension source, or every source-level relationship.
+It is not guaranteed to:
 
-### Versioned `.splitgmproj` intermediate format
+- match the original developer project;
+- compile immediately;
+- run correctly;
+- preserve every original resource relationship;
+- or reproduce the original game perfectly.
 
-Every reconstructed GameMaker project also includes a stable, inspectable `.splitgmproj` document.
+---
 
-Format version `1.0` records information such as:
+## Automatic reconstructed-project repair
 
-- SplitGM and format version;
-- source game and detected GameMaker information;
-- selected target project schema;
-- deterministic resource IDs;
-- original and reconstructed resource names;
-- resource type and reconstruction status;
-- recovered relationships;
-- output files;
-- warnings and errors;
-- validation results;
-- unsupported or unrepresented data.
+After initial `.yyp` generation, SplitGM runs a conservative, report-first repair pass.
 
-The format is intended to give future SplitGM versions a stable repair and migration layer instead of tying every feature directly to one GameMaker `.yyp` schema.
+The repair system:
 
-See:
+- preserves the untouched pre-repair project;
+- records every change with an ID, category, confidence, evidence, before/after values, and manual steps;
+- allocates globally unique case-insensitive GameMaker asset names;
+- updates exact GML and JSON references after known renames;
+- registers recoverable `GlobalInit` and `GlobalScript` code as modern script resources;
+- repairs placeholder and duplicate enum names;
+- removes duplicate identifiers from compatible recovered `var` declarations;
+- adds safe optional parameters when recovered code references higher `argumentN` slots;
+- normalizes `.yy`, `.yyp`, folder, resource-order, reference, and target-version fields;
+- creates clearly marked structural placeholders for required missing code files;
+- checks sprite dimensions, frames, bounds, origins, sequences, playback, and collision defaults;
+- identifies extension and unresolved-function candidates;
+- and runs a static compile preflight.
+
+Every repaired project can include:
 
 ```text
-docs\SPLITGMPROJ-FORMAT.md
+SplitGM-Repair-Report.txt
+SplitGM-Repair-Report.json
+SplitGM-Unresolved-Functions.txt
+__SplitGM_OriginalDecompilerOutput\
 ```
 
-### Reconstruction validation and fallback reporting
+Static preflight is not a replacement for compiling the project in GameMaker.
 
-SplitGM validates reconstructed output for common structural problems, including:
+### Room and project-linking validation
 
-- invalid or missing files;
-- malformed JSON;
-- duplicate resource identifiers;
-- duplicate or unsafe names;
-- broken reconstructed references;
-- output paths that escape the chosen project directory;
-- resources that cannot safely be added to the `.yyp`.
+v0.5.1.0 includes additional checks for:
 
-Resources that cannot yet be represented are not silently discarded. SplitGM stores inspectable data in folders such as:
+- project resource-list types;
+- room-order entries;
+- room layer types;
+- room instance object references;
+- and `instanceCreationOrder` entries.
+
+The repair pass avoids rewriting a room-instance creation-order name into the room's own resource name. That incorrect rewrite caused GameMaker errors such as:
+
+```text
+Resource '<room name>' does not match the list type expected.
+```
+
+The exporter now validates that creation-order entries refer to actual `GMRInstance` entries in the same room.
+
+Resources that cannot be represented safely can be excluded from unsafe project lists and preserved as inspectable fallback data.
+
+---
+
+## Reconstructed project output
+
+A reconstructed project can contain:
+
+```text
+GameName_Reconstructed\
+├── GameName.yyp
+├── GameName.resource_order
+├── GameName.splitgmproj
+├── README-SplitGM-Reconstructed-Project.txt
+├── SplitGM-Reconstruction-Report.txt
+├── SplitGM-Reconstruction-Report.json
+├── SplitGM-Reconstruction-Validation.txt
+├── SplitGM-Reconstruction-Validation.json
+├── SplitGM-Repair-Report.txt
+├── SplitGM-Repair-Report.json
+├── SplitGM-Unresolved-Functions.txt
+├── folders\
+├── scripts\
+├── objects\
+├── rooms\
+├── sprites\
+├── sounds\
+├── paths\
+├── audiogroups\
+├── __SplitGM_Metadata\
+├── __SplitGM_Unrepresented\
+└── __SplitGM_OriginalDecompilerOutput\
+```
+
+Not every folder or report is produced for every game.
+
+### `.splitgmproj` intermediate format
+
+Every reconstructed project includes a versioned `.splitgmproj` document.
+
+It stores:
+
+- source and detected GameMaker information;
+- the selected game profile;
+- target reconstruction information;
+- stable resource IDs;
+- original and reconstructed names;
+- resource statuses;
+- recovered relationships;
+- generated files;
+- warnings and errors;
+- and validation state.
+
+This gives future SplitGM builds a stable format for repair and migration work.
+
+### Transparent fallback output
+
+SplitGM preserves data that cannot be added safely to the `.yyp` under folders such as:
 
 ```text
 __SplitGM_Metadata\
 __SplitGM_Unrepresented\
 ```
 
-A reconstructed project also receives reports describing what was generated, what was skipped, and what may require repair.
-
-### Reconstructed-project progress window
-
-The reconstructed `.yyp` exporter has a dedicated progress window that shows:
-
-- output path;
-- current stage;
-- elapsed time;
-- completed and total item counts;
-- percentage;
-- every queued script and resource;
-- current status;
-- resource type;
-- resource name;
-- output file;
-- live warnings and errors;
-- cancellation status.
-
-Visual resources can display image previews while they are exported. Other inspectable resources can display text or metadata. Audio resources are exported without attempting to display an audio preview.
-
-### High-speed bulk export
-
-Large games can contain tens or hundreds of thousands of code entries, frames, and resources. SplitGM uses bounded parallel processing for reconstructed-project export and category-wide resource export.
-
-The export system:
-
-- processes independent resources in parallel;
-- limits worker counts to avoid excessive memory use;
-- reuses decoded texture-page data while exporting sprites;
-- avoids generating a second expensive preview copy before the real export;
-- preserves deterministic project and manifest ordering after parallel work completes;
-- continues after individual resource failures.
-
-Performance still depends heavily on storage speed, CPU core count, available memory, texture-page size, antivirus scanning, and the number of files being written.
-
-### Resource Explorer
-
-SplitGM loads the selected game once and exposes its contents through a paged, searchable Resource Explorer.
-
-Supported categories include:
-
-- general game information;
-- code entries and scripts;
-- objects and object events;
-- rooms, layers, instances, views, tiles, and creation code;
-- sprites and animation frames;
-- backgrounds and tilesets;
-- sounds, embedded audio, and audio groups;
-- fonts and glyph atlases;
-- shaders;
-- paths;
-- timelines;
-- sequences;
-- animation curves;
-- particle systems and emitters;
-- texture pages and texture-page items;
-- texture groups;
-- embedded images;
-- extensions;
-- filter effects;
-- functions;
-- variables;
-- strings.
-
-Large categories are divided into manageable pages instead of creating thousands of interface elements at once.
-
-### GML and VM code viewer
-
-- Read-only AvalonEdit-based code display.
-- Reconstructed GML and VM assembly tabs.
-- Syntax highlighting.
-- Line numbers.
-- Word wrapping.
-- Search inside the selected document.
-- Global search across code entries.
-- Copy and export actions through the menu bar.
-- Automatic performance limits for extremely large files.
-- Background decompilation so complex code does not block the WPF interface.
-- Cancellation when another entry is selected before the previous preview finishes.
-- Bounded code caches to reduce memory use.
-- Failure-safe syntax highlighting so a definition problem does not prevent SplitGM from opening.
-
-### Room viewer
-
-The room workspace can display and inspect:
-
-- room dimensions, speed, persistence, and creation code;
-- GMS1 backgrounds;
-- GMS2 background layers;
-- background colors and color layers;
-- stretching and horizontal or vertical tiling;
-- layer offsets, depth, visibility, and movement speeds;
-- object instances and transform data;
-- instance creation and pre-create code;
-- sprite assets placed in rooms;
-- GMS2 tile layers and tileset data;
-- tile flip and rotation flags;
-- room views and camera-related information.
-
-Room previews are bounded raster reconstructions intended for inspection. They do not run the game or reproduce dynamic drawing code, shaders, surfaces, particles, runtime cameras, or every GameMaker behavior.
-
-### Object and connected-code navigation
-
-Objects expose:
-
-- assigned sprite;
-- parent object;
-- collision mask;
-- visibility, solidity, persistence, and depth;
-- physics information;
-- event mappings.
-
-Double-clicking an object, object event, room instance, or navigable relationship result opens connected code.
-
-For a room instance, SplitGM can combine:
-
-- instance creation code;
-- instance pre-create code;
-- object Create, Step, Draw, Collision, and other events.
-
-The user can then select a connected entry and open its reconstructed GML.
-
-### Sprite, image, and texture viewing
-
-- View sprite metadata, dimensions, origins, bounds, collision modes, and frame counts.
-- Navigate or play normal raster sprite frames.
-- Preview backgrounds, tilesets, font atlases, texture-page items, full texture pages, and embedded images.
-- Export individual frames or complete sprite resources.
-- Export collision masks as PNG files when recoverable.
-- Export recoverable Spine JSON and atlas text when present.
-- Use nearest-neighbor scaling for pixel-art-oriented room previews.
-- Reuse texture-page decoding during bulk exports for improved performance.
-
-### Audio viewing and playback
-
-- Inspect sound metadata, flags, source names, formats, volume, pitch, and audio-group references.
-- Resolve audio embedded in the main data archive.
-- Resolve audio stored in external GameMaker audio-group files when those files are present.
-- Resolve streamed external audio when the referenced file is present.
-- Play WAV audio.
-- Play OGG Vorbis audio.
-- Play MP3 audio.
-- Stop playback safely when changing resources or closing a game.
-- Export the selected sound.
-- Export a selected audio group.
-- Export all recoverable sounds or embedded audio.
-
-### Relationship and reference analysis
-
-The Relationships workspace can inspect:
-
-- function and script callers;
-- function and script callees;
-- global-variable usage;
-- static room transitions such as `room_goto(room_name)`;
-- object parent and child inheritance;
-- object event code;
-- objects placed across rooms;
-- room and instance creation code;
-- sprite and collision-mask relationships;
-- room layers, backgrounds, and tileset relationships;
-- named resource references found in reconstructed GML;
-- heuristic unused-resource candidates.
-
-Results can be double-clicked to navigate to the related resource or code entry.
-
-Relationship and unused-resource analysis is partly heuristic. GameMaker projects can resolve resources dynamically through strings, extensions, native code, generated identifiers, or YYC code, so a reported unused resource is not guaranteed to be unused.
-
-### Extraction and resource export system
-
-The **Export** menu supports:
-
-- full organized SplitGM extraction-project export;
-- selected-resource export;
-- selected audio-group export;
-- complete export of a chosen resource category.
-
-Resource-type groups include:
-
-- **Graphics:** sprites, backgrounds, tilesets, fonts, texture pages, texture-page items, and embedded images;
-- **Audio:** sounds, audio groups, and embedded audio;
-- **Rooms and Objects:** rooms and objects;
-- **Motion and Time:** paths, timelines, sequences, and animation curves;
-- **Rendering and Effects:** shaders, particle systems, particle emitters, filter effects, and texture groups;
-- **Metadata:** extensions, strings, functions, and variables.
-
-Exports provide:
-
-- a dedicated operation window;
-- current stage and item information;
-- item counts and percentage;
-- elapsed time;
-- live messages;
-- cancellation at safe stopping points;
-- per-resource error continuation;
-- category summary files;
-- safe output-path validation;
-- optional opening of the completed output directory.
-
-A full SplitGM extraction project uses an organized layout similar to:
-
-```text
-Game_SplitGM_Project\
-├── SplitGM-Manifest.json
-├── CodeIndex.json
-├── GameInfo\
-├── Code\
-├── Scripts\
-├── Objects\
-├── Rooms\
-├── GlobalInit\
-├── Timelines\
-├── VMAssembly\
-├── ResourceIndexes\
-├── Resources\
-│   ├── Sprites\
-│   ├── Sounds\
-│   ├── Audio-Groups\
-│   ├── Rooms\
-│   ├── Objects\
-│   ├── Fonts\
-│   ├── Shaders\
-│   ├── Texture-Pages\
-│   └── ...
-├── Errors\
-└── Logs\
-```
-
-This organized extraction format is separate from the reconstructed GameMaker `.yyp` project export.
-
-### Loading, progress, and diagnostics
-
-Opening a supported data file or EXE displays a detailed loading window containing:
-
-- input path;
-- current stage;
-- current item;
-- completed item count;
-- percentage;
-- elapsed time;
-- live status messages;
-- cancellation support.
-
-SplitGM also includes:
-
-- persistent activity logs;
-- timestamped build logs;
-- detailed crash reports with inner exceptions;
-- a copyable diagnostic report;
-- privacy-conscious path handling in diagnostics;
-- safe cleanup when replacing or closing very large game sessions.
-
-### Menu-driven interface
-
-The main window uses a standard menu bar:
-
-- **File** — open, close, reopen, output-folder, and exit actions;
-- **Edit** — selection and copy-related actions;
-- **Export** — selected, grouped, audio-group, and full extraction-project exports;
-- **View** — workspaces, editor display options, and refresh actions;
-- **Tools** — reconstructed `.yyp` export, search, relationships, unused candidates, logs, diagnostics, and settings;
-- **Help** — About and licensing information.
-
-Context-specific playback and frame-navigation controls remain inside applicable resource viewers.
-
-### Settings
-
-Settings are stored in:
-
-```text
-SplitGM_Settings.ini
-```
-
-SplitGM first attempts to store the INI file beside the executable. If that folder is read-only, it uses the SplitGM folder under Local AppData while keeping the same filename.
-
-Available settings include:
-
-- default export directory;
-- export overwrite behavior;
-- progress-window behavior;
-- automatically opening completed output;
-- line-number visibility;
-- word wrapping;
-- relationship-result limits;
-- window size and placement restoration.
-
-### About and licensing windows
-
-The About interface is a dedicated resizable window rather than a message box. It presents:
-
-- SplitGM version;
-- runtime details;
-- component information;
-- project purpose;
-- credits;
-- license information.
-
-Version 0.5.0 also integrates the SplitGM program logo and splash artwork throughout the application.
+These can contain:
+
+- raw recovered metadata;
+- previews;
+- raw code;
+- VM assembly;
+- unsupported resources;
+- fallback JSON or text;
+- and explanations of why a resource was omitted.
+
+---
+
+## Main features
+
+### Resource Explorer and code inspection
+
+- Paged and searchable Resource Explorer.
+- Reconstructed GML display.
+- VM assembly display.
+- AvalonEdit syntax highlighting.
+- Line numbers and word wrap.
+- Code search.
+- Connected-code navigation.
+- Large-document safeguards and bounded caches.
+
+### Resource viewers
+
+- Sprite frame preview and playback.
+- Object sprite and event/code mapping.
+- Dedicated read-only room viewer.
+- Background and tileset preview.
+- Font atlas preview.
+- Embedded texture-page preview.
+- Audio playback.
+- Real decoded-sample audio waveform display.
+- Resource metadata and property tables.
+
+### Audio
+
+- WAV playback and decoding.
+- OGG Vorbis playback and decoding.
+- MP3 playback and decoding.
+- Waveform duration, sample rate, channels, peak, RMS, decoder, and scan status.
+- SVG and JSON waveform sidecars during compatible exports.
+- Audio failures do not block original audio export.
+
+### Read-only room viewer
+
+- Nearest-neighbor rendering.
+- Scrollable room surface.
+- Zoom, fit-to-window, and 100% controls.
+- Ctrl+mouse-wheel zoom.
+- Optional grid.
+- Layer, instance, and tile tables.
+- GMS1 and GMS2 room support.
+- GMS2 color layers, tile transforms, offsets, stretching, and tiling.
+- No mutation, drag editing, or save-back behavior.
+
+### Relationship analysis
+
+- Callers and callees.
+- Global-variable usage.
+- Static room transitions.
+- Object inheritance.
+- Room/object placement relationships.
+- Named asset references.
+- Heuristic unused-resource candidates.
+- Navigation from relationships to connected code.
+
+### Export workflows
+
+- Selected-resource export.
+- Complete resource-category export.
+- Complete audio-group export.
+- Organized SplitGM extraction-project export.
+- Experimental reconstructed GameMaker project export.
+- Cancellable progress windows.
+- Deterministic output ordering.
+- Per-resource error continuation.
+- Detailed activity, reconstruction, repair, validation, and crash logs.
+
+---
+
+## UMT-aligned loading and performance
+
+The open/decompile path is centralized through `UmtNativePipeline`.
+
+It uses:
+
+- `UndertaleIO.Read` for loading;
+- shared `GlobalDecompileContext`;
+- `DecompileContext.DecompileToString()` for high-level GML recovery;
+- `UndertaleCode.Disassemble()` for VM assembly;
+- bounded parallel decompilation;
+- deterministic output merging;
+- shared and short-lived `TextureWorker` caches.
+
+Large reconstructed exports run on a worker task.
+
+A throttled UI progress pump coalesces status, resource rows, previews, and logs instead of flooding the WPF dispatcher with one update for every exported item.
+
+Sprite export is grouped around connected texture pages with bounded parallelism.
+
+These changes keep large exports more responsive and reduce texture-cache contention.
+
+---
 
 ## Supported input
 
-SplitGM can attempt to open:
+SplitGM accepts:
 
-```text
-data.win
-*.win
-*.unx
-*.ios
-*.droid
-*.android
-*.game
-*.exe
-```
+- `data.win`;
+- `.win`;
+- `.unx`;
+- `.ios`;
+- `.droid`;
+- `.android`;
+- `.game`;
+- and Windows GameMaker executables with a neighboring or validated embedded data archive.
 
-Windows EXE handling supports:
+VM games can provide reconstructed GML and VM assembly.
 
-- a neighboring GameMaker data archive;
-- a validated embedded `FORM` archive when one can be located safely.
+YYC games can still provide recoverable resources and metadata, but they do not contain normal GameMaker VM bytecode for SplitGM to decompile.
 
-SplitGM does not promise support for packed, encrypted, intentionally obfuscated, damaged, DRM-protected, or unsupported executables.
+Packed, encrypted, damaged, unsupported, or platform-specific layouts may not load.
 
-## VM, YYC, and reconstructed source
-
-GameMaker VM builds contain bytecode that can be analyzed and reconstructed into high-level GML.
-
-YYC builds compile code into native machine code. SplitGM can still expose recoverable resources and metadata from a YYC game, but it cannot recreate normal GameMaker VM GML when VM bytecode is absent.
-
-Even for a supported VM game, reconstructed GML and project data are not the exact original source. The following may be unavailable, altered by compilation, or only inferable:
-
-- comments;
-- original formatting;
-- some local-variable names;
-- original macros and enum names;
-- original function signatures and optional arguments;
-- original folder organization;
-- compiler-optimized-away code;
-- exact source-level control-flow choices;
-- extension source and platform-specific information;
-- original sprite source canvases or import settings;
-- IDE-only metadata not stored in the compiled game.
-
-## Basic usage
-
-### Browse and extract a game
-
-1. Start `SplitGM-VM-Decompiler.exe`.
-2. Select **File → Open Game**.
-3. Choose a supported GameMaker data file or Windows executable.
-4. Wait for loading to finish.
-5. Browse resources in the Resource Explorer.
-6. Select code to view reconstructed GML or VM assembly.
-7. Double-click objects, events, room instances, or relationships to navigate connected code.
-8. Use **Export** to export one resource, an audio group, a complete category, or a full organized SplitGM extraction project.
-
-### Generate a reconstructed GameMaker project
-
-1. Load a supported GameMaker VM game.
-2. Select **Tools → Decompile to Reconstructed .yyp Project...**.
-3. Choose an empty output folder or a folder previously created by SplitGM's reconstructed-project exporter.
-4. Review the complete queued resource list.
-5. Allow the export to finish, or cancel at a safe stopping point.
-6. Read the generated reconstruction and validation reports.
-7. Open the generated `.yyp` in a compatible GameMaker IDE.
-8. Treat the project as a repair workspace and expect manual work.
-
-SplitGM does not need to be placed in the game directory. Keeping it in its own folder is recommended.
+---
 
 ## System requirements
 
-### Framework-dependent release
+### Precompiled framework-dependent build
 
-- Windows 10 or newer, x64;
-- .NET 10 Desktop Runtime, x64;
-- sufficient free memory and disk space for the selected game and export.
+- Windows x64
+- .NET 10 Desktop Runtime
 
-### Self-contained release
+### Precompiled self-contained build
 
-A self-contained build includes the required .NET runtime and does not require a separate .NET Desktop Runtime installation. It is larger than the framework-dependent package.
+- Windows x64
+- No separate .NET Desktop Runtime installation required
+- Larger download and extracted size
 
-Very large games can require substantial memory and disk activity when loading resources, decoding texture pages, rendering rooms, searching all code, extracting every asset, or writing a reconstructed GameMaker project containing thousands of small files.
+### Source build
+
+- Windows x64
+- Visual Studio 2026
+- .NET desktop development workload
+- .NET 10 SDK
+- PowerShell 5.1 or newer
+- Internet access when dependencies or NuGet packages must be restored
+
+---
+
+## Installing a precompiled release
+
+1. Download the desired Windows x64 release ZIP.
+2. Extract the complete ZIP into its own folder.
+3. Keep all EXEs, DLLs, resources, license files, and notices together.
+4. Start:
+
+   ```text
+   SplitGM\SGMVMDLauncher.exe
+   ```
+
+5. Do not start `SplitGM-VM-Decompiler.exe` directly.
+
+Do not copy only one executable out of the release folder.
+
+SplitGM does not need to be placed inside a game directory.
+
+---
+
+## Basic usage
+
+### Open and inspect a game
+
+1. Start SplitGM through `SGMVMDLauncher.exe`.
+2. Select **File → Open game...**
+3. Choose a supported GameMaker data file or executable.
+4. Wait for loading and profile detection to finish.
+5. Browse resources through the Resource Explorer.
+6. Open code entries to inspect reconstructed GML or VM assembly.
+7. Use relationship tools to navigate connected resources and code.
+8. Use the Export menu to recover selected resources or complete categories.
+
+### Run the loaded game from TEMP
+
+1. Load a supported Windows GameMaker game.
+2. Select **Tools → Run Game from TEMP**.
+3. Confirm or select the original runner executable when requested.
+4. Wait for TEMP preparation and launch.
+5. Review the Activity Log or TEMP-run log when needed.
+6. Use **Tools → Open Current TEMP Run Folder** to inspect the run manifest.
+
+### Export an organized SplitGM extraction project
+
+Use the extraction-project export when the goal is to inspect code, metadata, indexes, assets, relationships, and errors outside GameMaker.
+
+This is separate from the reconstructed `.yyp` feature.
+
+### Decompile to a reconstructed GameMaker project
+
+1. Open **Tools → Settings → Experimental**.
+2. Enable **Decompile to .yyp Project**.
+3. Load a supported GameMaker VM game.
+4. Select **Tools → Decompile to Reconstructed .yyp Project...**
+5. Choose a parent output directory.
+6. Review queued resources and progress.
+7. Read the reconstruction, validation, and repair reports.
+8. Open the generated `.yyp` in a compatible GameMaker IDE.
+9. Treat GameMaker's own parser/compiler output as the final authority.
+
+Do not overwrite an unrelated project directory.
+
+---
+
+## Public beta and reconstruction status
+
+SplitGM v0.5.1.0 remains a public beta.
+
+The reconstructed-project exporter is experimental and disabled by default.
+
+A compiled GameMaker game normally does not contain every part of its original project. Information that may be missing, renamed, optimized, inferred, or impossible to recover includes:
+
+- comments;
+- formatting;
+- original local-variable names;
+- macros;
+- original enum names;
+- exact function signatures;
+- original optional arguments;
+- original folder organization;
+- IDE-only metadata;
+- import settings;
+- original sprite source canvases;
+- extension source;
+- native code;
+- platform-specific project data;
+- and code removed or changed by optimization.
+
+Common remaining reconstructed-project problems can include:
+
+- unresolved built-ins or extension functions;
+- behavior lost from missing source data;
+- inaccurate room layers;
+- dynamic resource lookups that static analysis cannot recover;
+- sprite padding, origin, mask, or source-canvas differences;
+- shader and extension incompatibilities;
+- platform configuration differences;
+- and runner-version-specific project fields.
+
+An openable project is not necessarily a compilable project.
+
+A compilable project is not necessarily an accurate recreation of the original game.
+
+---
+
+## Performance notes
+
+Large games can contain thousands of code entries, sprites, frames, rooms, sounds, and texture-page items.
+
+Performance depends on:
+
+- CPU core count;
+- available memory;
+- storage speed;
+- antivirus and Windows Defender scanning;
+- cloud synchronization;
+- texture-page size;
+- resource count;
+- and output file count.
+
+For best results:
+
+- use a local SSD;
+- avoid network, external, cloud-synchronized, or compressed output folders;
+- keep sufficient free disk space;
+- close unnecessary memory-heavy software;
+- and let one large operation finish before starting another.
+
+Do not disable security software solely to improve export performance.
+
+---
+
+## Troubleshooting
+
+### SplitGM does not start
+
+Confirm that:
+
+- the complete release was extracted;
+- `SGMVMDLauncher.exe` is being used;
+- all release files remain together;
+- the correct Windows x64 package was downloaded;
+- and the .NET 10 Desktop Runtime is installed for a framework-dependent package.
+
+Check the `Logs` folder for a crash report.
+
+### The main EXE says the launcher is required
+
+This is expected.
+
+Start:
+
+```text
+SGMVMDLauncher.exe
+```
+
+Do not start:
+
+```text
+SplitGM-VM-Decompiler.exe
+```
+
+### Run Game from TEMP cannot find a runner
+
+Use the file-selection dialog to choose the original Windows GameMaker game executable.
+
+The runner normally needs to remain in its original installation directory so its runtime DLLs and other dependencies can be found.
+
+### A TEMP-run game starts without Steam features
+
+This can be expected.
+
+For Steam-enabled games, SplitGM may disable Steam metadata only in the temporary data copy so the original runner accepts the custom TEMP launch instead of handing control back to Steam.
+
+The original game installation is not changed.
+
+### A game will not open
+
+The input may be:
+
+- unsupported;
+- YYC-only;
+- packed or encrypted;
+- damaged;
+- missing a neighboring data archive;
+- or using an unsupported platform or GameMaker generation.
+
+Include the activity log and detected format information in a bug report.
+
+Do not upload copyrighted game files.
+
+### The reconstructed `.yyp` command is missing
+
+Open:
+
+```text
+Tools → Settings → Experimental
+```
+
+Enable:
+
+```text
+Enable Decompile to .yyp Project
+```
+
+The command is hidden by default.
+
+### The `.yyp` opens but does not compile
+
+Read:
+
+- GameMaker's compiler errors;
+- `SplitGM-Reconstruction-Report.txt`;
+- `SplitGM-Reconstruction-Validation.txt`;
+- `SplitGM-Repair-Report.txt`;
+- `SplitGM-Unresolved-Functions.txt`;
+- and files under `__SplitGM_Unrepresented`.
+
+Manual repair may still be required.
+
+### The project compiles but looks or behaves incorrectly
+
+Check:
+
+- sprite source dimensions and padding;
+- frame placement;
+- origins and collision masks;
+- room layers;
+- viewport settings;
+- application-surface scaling;
+- shaders;
+- extensions;
+- and dynamic drawing behavior.
+
+---
 
 ## Building from source
 
-### Requirements
-
-- Windows x64;
-- Visual Studio 2026;
-- **.NET desktop development** workload;
-- .NET 10 SDK;
-- PowerShell 5.1 or newer;
-- internet access for the one-time dependency setup.
-
-Git and winget are not required.
-
-### 1. Download dependencies
-
-From the source root, run:
+Run dependency setup:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Setup-Dependencies.ps1
 ```
 
-The script downloads the pinned UndertaleModTool revision and matching Underanalyzer revision into:
-
-```text
-External\UndertaleModTool\
-```
-
-To replace an existing dependency directory with the tested revisions:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\Setup-Dependencies.ps1 -Force
-```
-
-The optional `-UseLatest` switch is intended for development experiments. A newer upstream revision may introduce API or format changes that have not been tested with SplitGM.
-
-### 2. Build with Visual Studio
-
-Open:
+Then open:
 
 ```text
 SplitGM-VM-Decompiler.sln
 ```
 
-Then:
-
-1. Select **Release | x64**.
-2. Set `SplitGM.Gui` as the startup project.
-3. Build the complete solution.
-
-The solution contains:
+Select:
 
 ```text
-Underanalyzer
-UndertaleModLib
-SplitGM.Core
-SplitGM.Gui
+Release | x64
 ```
 
-SplitGM is a GUI-only application. There is no separate SplitGM CLI release.
+Set this as the startup project:
 
-### 3. Build a release package
+```text
+SGMVMDLauncher
+```
 
-Framework-dependent Windows x64 build:
+Build the complete solution.
+
+The main GUI project is launcher-authorized and is not the correct direct startup project.
+
+### Framework-dependent release
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Build-Release.ps1
 ```
 
-Self-contained Windows x64 build:
+### Self-contained release
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Build-Release.ps1 -SelfContained
 ```
 
-Published application:
+Published application output:
 
 ```text
 artifacts\win-x64\SplitGM\
 ```
 
-Release documentation and license files:
+Start the published application with:
 
 ```text
-artifacts\win-x64\README.md
-artifacts\win-x64\LICENSE.txt
-artifacts\win-x64\THIRD-PARTY-NOTICES.md
+artifacts\win-x64\SplitGM\SGMVMDLauncher.exe
 ```
 
-Timestamped build logs:
+Package the complete:
 
 ```text
-Logs\Build-YYYY-MM-DD_HH-mm-ss.log
+artifacts\win-x64\
 ```
 
-When creating a downloadable binary ZIP, package the complete contents of `artifacts\win-x64\`, not only the executable.
+folder so the application, license, notices, and README remain together.
 
-## Source layout
+The build script:
 
-```text
-SplitGM-VM-Decompiler\
-├── src\
-│   ├── SplitGM.Core\
-│   └── SplitGM.Gui\
-├── External\
-│   └── UndertaleModTool\
-├── docs\
-├── Setup-Dependencies.ps1
-├── Clean-Solution.ps1
-├── Build-Release.ps1
-├── Directory.Build.props
-├── SplitGM-VM-Decompiler.sln
-├── LICENSE.txt
-└── THIRD-PARTY-NOTICES.md
-```
+- uses a repository-local NuGet cache;
+- retries once after rebuilding that cache when restore fails;
+- builds Underanalyzer and UndertaleModLib first;
+- builds the full SplitGM solution;
+- publishes the GUI;
+- publishes the launcher as a single file with its embedded frame resources;
+- verifies both required EXEs;
+- and writes a timestamped build log.
 
-## Known limitations
+---
 
-- Reconstructed GML is not the exact original source.
-- A reconstructed `.yyp` can open successfully while still containing compile errors.
-- Common remaining problems can include invalid names, duplicate names, duplicate enum placeholders, incorrect function signatures, missing global functions, duplicate local variables, missing extension functions, unresolved references, and version-specific syntax.
-- Reconstructed sprites can have incorrect canvas size, transparent padding, origin, collision mask, or frame-layout behavior.
-- Reconstructed rooms can lose complex layers, effects, tiles, cameras, sequence data, or runtime-created content.
-- Extensions, shaders, timelines, sequences, particles, and platform-specific systems may be incomplete or exported only as fallback data.
-- Successful compilation does not guarantee correct behavior.
-- Successful runtime startup does not guarantee visual or behavioral accuracy.
-- Relationship and unused-resource analysis is heuristic.
-- YYC builds do not contain normal VM bytecode for GML reconstruction.
-- SplitGM does not patch or save modified game archives.
+## Source package
 
-## Planned development
+The v0.5.1.0 source release should correspond to the same version as the precompiled build.
 
-The roadmap may change as testing reveals new priorities.
+The source package contains:
 
-### v0.5.1.0 — Automatic reconstructed-project repair
+- SplitGM.Core;
+- SplitGM.Gui;
+- SGMVMDLauncher;
+- SGMVMDLauncher.Playback;
+- build and dependency scripts;
+- documentation;
+- licenses and notices;
+- and the pinned UndertaleModTool / Underanalyzer source tree required by this release.
 
-The next repair-focused build is planned to scan reconstructed projects and automatically fix common, well-understood decompiler and project-generation problems.
+Generated release binaries, NuGet caches, user game files, TEMP runs, and unrelated build output should not be included in the clean source archive.
 
-Possible repair areas include:
+---
 
-- duplicate placeholder enum names;
-- invalid, unsafe, or duplicate resource names;
-- case-insensitive name collisions;
-- missing GlobalInit and GlobalScript registration;
-- recovered functions that require optional parameters;
-- duplicate local-variable declarations;
-- broken resource references after renaming;
-- missing object-event, room-code, or instance-code files;
-- sprite canvas, padding, origin, and collision-mask inconsistencies;
-- malformed `.yy`, `.yyp`, folder, and resource-order data;
-- missing default fields required by the target GameMaker version;
-- unresolved function and extension reports;
-- project compile-preflight validation.
+## Reporting problems
 
-SplitGM should preserve original decompiler output, record every repair, assign confidence levels, and generate a highly detailed text report for anything it cannot fix safely, including possible manual repair steps.
-
-### v0.6 — Repair expansion and advanced analysis
-
-- safer compatibility shims;
-- improved call graphs;
-- struct and constructor detection;
-- macro, enum, and constant inference;
-- duplicate-code detection;
-- state-machine analysis;
-- better local-variable recovery;
-- additional room-transition and resource-use visualization.
-
-### v0.7 — Compatibility and batch workflows
-
-- compatibility profiles for additional GameMaker generations;
-- batch processing;
-- per-game decompiler and repair settings;
-- resume and incremental export;
-- comparison between builds of the same game;
-- improved recovery from partially damaged archives.
-
-### v0.8 — Project reconstruction expansion
-
-- wider room-layer support;
-- improved sequence and animation-curve reconstruction;
-- additional shader, font, timeline, and particle handling;
-- better extension and platform-data reporting;
-- improved sprite and tileset source reconstruction.
-
-### v0.9 — Release candidate
-
-- larger regression-test suite;
-- performance and memory tuning;
-- accessibility and interface polish;
-- installer and portable distribution work;
-- final public documentation and compatibility reporting.
-
-### v1.0 — Stable Decompiler Studio
-
-The stable release target combines VM decompilation, complete resource browsing and extraction, relationship analysis, project reconstruction, automatic repair, validation, large-game stability, documentation, and a tested public release workflow.
-
-SplitGM will never be able to recreate every original project perfectly. The goal is to recover as much inspectable and editable information as possible, repair well-understood reconstruction artifacts, and clearly report everything that remains uncertain or unsupported.
-
-## Reporting issues
-
-A useful issue report should include:
+A useful report should include:
 
 - SplitGM version;
 - Windows version;
-- whether the release is framework-dependent or self-contained;
-- detected GameMaker and bytecode version, when available;
-- selected input type (`data.win`, EXE, audio group, and so on);
-- exact steps to reproduce the problem;
+- framework-dependent or self-contained package;
+- loaded input type;
+- detected GameMaker and bytecode version;
+- effective game profile and detection confidence;
+- exact steps to reproduce;
 - the operation that failed;
-- the relevant SplitGM activity, build, reconstruction, or crash log;
-- generated validation or reconstruction reports;
-- a screenshot when it helps explain the problem.
+- activity, TEMP-run, reconstruction, repair, validation, build, or crash logs;
+- and screenshots when helpful.
 
-Do **not** upload a commercial game's `data.win`, executable, sprites, audio, reconstructed project, or other copyrighted assets unless you have permission to distribute them.
+Do not upload commercial game archives, executables, recovered assets, audio, sprites, or complete reconstructed projects unless you have permission to distribute them.
 
-A minimal independently created GameMaker test project is preferred when a file is needed to reproduce a bug.
+A small independently created GameMaker test project is preferred.
+
+---
 
 ## Legal and responsible use
 
 SplitGM is intended for legitimate research, interoperability, preservation, debugging, education, and analysis of files the user is legally allowed to inspect.
 
-Users are responsible for complying with applicable laws, licenses, platform rules, and the rights of game creators.
+Users are responsible for applicable laws, licenses, platform rules, and the rights of game creators.
 
-SplitGM does not include game files and is not intended to bypass DRM, encryption, authentication, access controls, or paid-content restrictions.
+SplitGM is not intended to bypass:
 
-## License
+- DRM;
+- encryption;
+- authentication;
+- ownership checks;
+- access controls;
+- or paid-content restrictions.
 
-SplitGM-VM Decompiler is licensed under the **GNU General Public License version 3.0**. See [`LICENSE.txt`](LICENSE.txt).
+---
 
-Binary releases should be accompanied by the complete corresponding source code for the same release and must retain the applicable license and copyright notices.
+## License and source code
 
-Third-party components remain under their own licenses. See [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
+SplitGM-VM Decompiler is licensed under the **GNU General Public License version 3.0**.
 
-Major components include:
+Binary distributions must retain the applicable license and third-party notices and must be accompanied by, or provide access to, the complete corresponding source code for the same release.
 
-| Component | Purpose | License |
-|---|---|---|
-| UndertaleModTool / UndertaleModLib | GameMaker loading, models, disassembly, texture and audio infrastructure | GPL-3.0 |
-| Underanalyzer | VM analysis and GML reconstruction | MPL-2.0 |
-| AvalonEdit | GML, assembly, and text viewing | MIT |
-| NAudio | Windows audio output and WAV/MP3 decoding | MIT |
-| NAudio.Vorbis | OGG Vorbis decoding | MIT |
-| Magick.NET | Texture decoding, image export, and room-preview composition | Apache-2.0 |
+See:
+
+```text
+LICENSE.txt
+THIRD-PARTY-NOTICES.md
+```
+
+Major third-party components include:
+
+- UndertaleModTool and UndertaleModLib — GPL-3.0;
+- Underanalyzer — MPL-2.0;
+- AvalonEdit — MIT;
+- NAudio — MIT;
+- NAudio.Vorbis — MIT;
+- Magick.NET — Apache-2.0.
+
+---
 
 ## Credits
 
-- **sonic Fan Tech** — SplitGM project, interface, workflow, viewers, extraction systems, relationship tools, reconstructed-project system, and integration;
-- **UnderminersTeam and UndertaleModTool contributors** — UndertaleModTool, UndertaleModLib, GameMaker format research, and Underanalyzer;
-- **AvalonEdit contributors**;
-- **NAudio and NAudio.Vorbis contributors**;
-- **Magick.NET contributors**;
-- everyone who tests SplitGM and submits useful compatibility and reconstruction reports.
+- **sonic Fan Tech** — SplitGM project, interface, extraction workflows, viewers, relationship tools, project reconstruction, branding, launcher design, testing, and release work.
+- **UnderminersTeam and UndertaleModTool contributors** — UndertaleModTool, UndertaleModLib, Underanalyzer, GameMaker format research, and the loading/decompilation/texture/room systems SplitGM uses or adapts.
+- **OpenAI Codex** — implementation and iterative testing assistance for the final v0.5.1.0 profile, TEMP-run, reconstruction-validation, and bug-fix work.
+- AvalonEdit contributors.
+- NAudio and NAudio.Vorbis contributors.
+- Magick.NET contributors.
+- Everyone who tests SplitGM and submits useful reports.
+
+---
 
 ## Disclaimer
 
-SplitGM-VM Decompiler is an independent community project. It is not affiliated with, endorsed by, or sponsored by YoYo Games, GameMaker, Toby Fox, 8-4, or the developers and publishers of games inspected with the program.
+SplitGM-VM Decompiler is an independent community project.
 
-GameMaker, UNDERTALE, DELTARUNE, and other names belong to their respective owners.
+It is not affiliated with, endorsed by, or sponsored by:
+
+- YoYo Games;
+- GameMaker;
+- Valve or Steam;
+- Toby Fox;
+- 8-4;
+- or the developers and publishers of games inspected with SplitGM.
+
+GameMaker, Steam, UNDERTALE, DELTARUNE, and other names belong to their respective owners.
