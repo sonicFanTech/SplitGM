@@ -79,6 +79,7 @@ public sealed record GameProjectInfo(
     string OriginalInput,
     string ResolvedDataSource,
     string ResolutionMethod,
+    string RunnerExecutableName,
     string GameName,
     string DisplayName,
     string GameMakerVersion,
@@ -88,6 +89,7 @@ public sealed record GameProjectInfo(
     bool UnsupportedBytecodeVersion,
     GameCompatibility Compatibility,
     string CompatibilityMessage,
+    DetectedGameProfile DetectedProfile,
     long InputFileSize,
     DateTimeOffset LoadedAt);
 

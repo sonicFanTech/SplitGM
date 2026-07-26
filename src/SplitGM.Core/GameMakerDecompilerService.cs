@@ -114,13 +114,21 @@ public sealed class GameMakerDecompilerService
                 DecompileStage.DecompilingCode,
                 0,
                 session.CodeEntries.Count,
-                $"Exporting {session.CodeEntries.Count:N0} code entries..."));
+                $"UMT batch-decompiling {session.CodeEntries.Count:N0} code entries..."));
+
+            IReadOnlyDictionary<int, CodeViewResult> codeViews = await session.DecompileAllCodeAsync(
+                progress,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             foreach (CodeEntryInfo entry in session.CodeEntries)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                CodeViewResult view = await session.GetCodeViewAsync(entry.Index, cancellationToken)
-                    .ConfigureAwait(false);
+                if (!codeViews.TryGetValue(entry.Index, out CodeViewResult? view))
+                {
+                    failed++;
+                    Report(LogMessage.Error($"UMT did not return a result for {entry.Name}."));
+                    continue;
+                }
 
                 string relativeGmlPath = OutputPathHelper.BuildRelativeGmlPath(
                     entry,

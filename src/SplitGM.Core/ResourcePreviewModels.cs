@@ -26,6 +26,7 @@ public sealed class ResourcePreviewData
     public RoomPreviewInfo? Room { get; init; }
     public ObjectPreviewInfo? Object { get; init; }
     public AudioPreviewInfo? Audio { get; init; }
+    public AudioWaveformInfo? Waveform { get; init; }
     public string? Text { get; init; }
 }
 
@@ -48,6 +49,22 @@ public sealed record AudioPreviewInfo(
     long DataLength,
     bool DataAvailable,
     string? ExternalPath);
+
+
+public sealed record AudioWaveformInfo(
+    IReadOnlyList<float> MinimumPeaks,
+    IReadOnlyList<float> MaximumPeaks,
+    double DurationSeconds,
+    int SampleRate,
+    int Channels,
+    long FramesRead,
+    float AbsolutePeak,
+    double Rms,
+    bool IsComplete,
+    string Decoder)
+{
+    public int PointCount => Math.Min(MinimumPeaks.Count, MaximumPeaks.Count);
+}
 
 public sealed record AudioPayload(
     byte[] Data,

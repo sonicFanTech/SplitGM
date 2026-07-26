@@ -3,12 +3,14 @@
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>SplitGM.Core</AssemblyName>
     <RootNamespace>SplitGM.Core</RootNamespace>
-    <Description>Core GameMaker loading, VM decompilation, resource recovery, relationship analysis, .splitgmproj serialization, and reconstructed .yyp generation services for SplitGM-VM Decompiler v0.5.0.</Description>
+    <Description>Core GameMaker loading, VM decompilation, resource recovery, relationship analysis, .splitgmproj serialization, and reconstructed .yyp generation services for SplitGM-VM Decompiler v0.5.1.0.</Description>
     <UndertaleModToolRoot>$(MSBuildThisFileDirectory)..\..\External\UndertaleModTool</UndertaleModToolRoot>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.14.0" />
+    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.15.0" />
+    <PackageReference Include="NAudio" Version="2.3.0" />
+    <PackageReference Include="NAudio.Vorbis" Version="1.5.0" />
   </ItemGroup>
 
   <ItemGroup>

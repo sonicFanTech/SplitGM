@@ -21,6 +21,7 @@ public partial class MainWindow
         LineNumbersCheckBox.IsChecked = _settings.ShowLineNumbers;
         WordWrapCheckBox.IsChecked = _settings.WordWrap;
         OpenLastGameMenuItem.IsEnabled = File.Exists(_settings.LastOpenedGame);
+        UpdateToolsMenuVisibility();
         RelationshipSummaryTextBox.Text =
             "Select a code entry or resource, then choose Tools > Analyze selected relationships.\r\n\r\n" +
             "SplitGM v0.4 can resolve callers/callees, object inheritance, room instances, room transitions, " +
@@ -124,6 +125,9 @@ public partial class MainWindow
         RenderCurrentCodeView();
         if (_currentResourcePreview is not null)
             ApplyResourcePreview(_currentResourcePreview);
+        UpdateToolsMenuVisibility();
+        if (_session is not null && MainTabControl.SelectedItem == DetailsTab)
+            ShowGeneralInformation();
     }
 
     private void OpenLogs_Click(object sender, RoutedEventArgs e)

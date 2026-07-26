@@ -3,6 +3,7 @@
 using System.Globalization;
 using System.IO;
 using System.Text;
+using SplitGM.Core;
 
 namespace SplitGM.Gui;
 
@@ -15,9 +16,13 @@ public sealed class SplitGmSettings
     public bool OpenOutputAfterExport { get; set; }
     public bool ShowOperationWindow { get; set; } = true;
     public bool AutoCloseOperationWindow { get; set; } = true;
+    public bool EnableReconstructedYypExport { get; set; }
+    public bool ExperimentalYypWarningAccepted { get; set; }
+    public GameProfilePreference GameProfilePreference { get; set; } = GameProfilePreference.AutoDetect;
     public bool ShowLineNumbers { get; set; } = true;
     public bool WordWrap { get; set; }
     public bool RememberWindowPlacement { get; set; } = true;
+    public string StartupDisplayMode { get; set; } = "Normal";
     public int RelationshipResultLimit { get; set; } = 1000;
     public string DefaultExportDirectory { get; set; } = string.Empty;
     public string LastOpenedGame { get; set; } = string.Empty;
@@ -103,10 +108,20 @@ public sealed class SplitGmSettings
         output.AppendLine($"DefaultExportDirectory={Escape(DefaultExportDirectory)}");
         output.AppendLine($"LastOpenedGame={Escape(LastOpenedGame)}");
         output.AppendLine();
+        output.AppendLine("[Experimental]");
+        output.AppendLine($"EnableReconstructedYypExport={EnableReconstructedYypExport.ToString().ToLowerInvariant()}");
+        output.AppendLine($"ExperimentalYypWarningAccepted={ExperimentalYypWarningAccepted.ToString().ToLowerInvariant()}");
+        output.AppendLine();
+        output.AppendLine("[GameProfile]");
+        output.AppendLine($"Preference={GameProfileSupport.NormalizePreference(GameProfilePreference)}");
+        output.AppendLine();
         output.AppendLine("[Display]");
         output.AppendLine($"ShowLineNumbers={ShowLineNumbers.ToString().ToLowerInvariant()}");
         output.AppendLine($"WordWrap={WordWrap.ToString().ToLowerInvariant()}");
         output.AppendLine($"RememberWindowPlacement={RememberWindowPlacement.ToString().ToLowerInvariant()}");
+        output.AppendLine();
+        output.AppendLine("[Startup]");
+        output.AppendLine($"Mode={NormalizeStartupDisplayMode(StartupDisplayMode)}");
         output.AppendLine();
         output.AppendLine("[Export]");
         output.AppendLine($"ExportResources={ExportResources.ToString().ToLowerInvariant()}");
@@ -134,9 +149,19 @@ public sealed class SplitGmSettings
             case "general.relationshipresultlimit": RelationshipResultLimit = ParseInt(value, RelationshipResultLimit, 100, 10000); break;
             case "general.defaultexportdirectory": DefaultExportDirectory = value; break;
             case "general.lastopenedgame": LastOpenedGame = value; break;
+            case "experimental.enablereconstructedyypexport":
+            case "experimental.enabledecompiletoyyp":
+            case "experimental.enabledecompiletoyypexport":
+                EnableReconstructedYypExport = ParseBool(value, EnableReconstructedYypExport);
+                break;
+            case "experimental.experimentalyypwarningaccepted":
+                ExperimentalYypWarningAccepted = ParseBool(value, ExperimentalYypWarningAccepted);
+                break;
+            case "gameprofile.preference": GameProfilePreference = GameProfileSupport.ParsePreference(value); break;
             case "display.showlinenumbers": ShowLineNumbers = ParseBool(value, ShowLineNumbers); break;
             case "display.wordwrap": WordWrap = ParseBool(value, WordWrap); break;
             case "display.rememberwindowplacement": RememberWindowPlacement = ParseBool(value, RememberWindowPlacement); break;
+            case "startup.mode": StartupDisplayMode = NormalizeStartupDisplayMode(value); break;
             case "export.exportresources": ExportResources = ParseBool(value, ExportResources); break;
             case "export.exportassembly": ExportAssembly = ParseBool(value, ExportAssembly); break;
             case "export.exportindexes": ExportIndexes = ParseBool(value, ExportIndexes); break;
@@ -147,6 +172,17 @@ public sealed class SplitGmSettings
             case "window.maximized": WindowMaximized = ParseBool(value, WindowMaximized); break;
         }
     }
+
+
+    public static string NormalizeStartupDisplayMode(string? value) =>
+        value?.Trim().ToLowerInvariant() switch
+        {
+            "firsthalf" => "FirstHalf",
+            "secondhalf" => "SecondHalf",
+            "firsthalfstatic" => "FirstHalfStatic",
+            "secondhalfstatic" => "SecondHalfStatic",
+            _ => "Normal"
+        };
 
     private static bool ParseBool(string value, bool fallback) =>
         bool.TryParse(value, out bool parsed) ? parsed : fallback;

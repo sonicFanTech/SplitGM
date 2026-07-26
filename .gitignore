@@ -17,3 +17,6 @@ External/UndertaleModTool/
 # SplitGM output
 Decompiled/
 *.log
+
+# Project-local NuGet cache created by Build-Release.ps1
+.nuget/

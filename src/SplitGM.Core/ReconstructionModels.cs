@@ -8,6 +8,8 @@ public enum ReconstructionStage
     BuildingIntermediateProject,
     ExportingResources,
     WritingGameMakerProject,
+    RepairingProject,
+    CompilePreflight,
     ValidatingProject,
     Completed
 }
@@ -17,7 +19,9 @@ public sealed record ReconstructedProjectOptions(
     bool OverwriteOutput = false,
     bool ExportRawFallbacks = true,
     bool ExportAssemblyFallbacks = true,
-    bool ValidateOutput = true);
+    bool ValidateOutput = true,
+    bool RunAutomaticRepair = true,
+    DetectedGameProfile? GameProfile = null);
 
 public sealed record ReconstructionResourceCatalogItem(
     ResourceKind? ResourceKind,
@@ -56,7 +60,11 @@ public sealed record ReconstructedProjectResult(
     int ResourceFailures,
     int WarningCount,
     int ErrorCount,
-    TimeSpan Elapsed);
+    TimeSpan Elapsed,
+    string RepairReportFile = "",
+    int RepairsApplied = 0,
+    int ManualRepairItems = 0,
+    bool CompilePreflightPassed = false);
 
 public sealed class SplitGmProjectDocument
 {
@@ -149,6 +157,15 @@ public sealed class SplitGmValidationSummary
     public bool ResourceNamesAreUniqueWithinType { get; set; }
     public bool StableResourceIdsAreUnique { get; set; }
     public bool RelationshipEndpointsResolved { get; set; }
+    public bool ProjectResourceListTypesValid { get; set; }
+    public bool RoomOrderEntriesReferenceRooms { get; set; }
+    public bool RoomInstanceCreationOrderValid { get; set; }
+    public bool RoomLayerCollectionsValid { get; set; }
+    public bool RoomInstanceObjectReferencesValid { get; set; }
+    public int RoomFilesChecked { get; set; }
+    public int RoomInstanceOrderErrors { get; set; }
+    public int RoomLayerErrors { get; set; }
+    public int RoomInstanceObjectReferenceErrors { get; set; }
     public int ResourceJsonFilesChecked { get; set; }
     public int ResourceJsonParseErrors { get; set; }
 }

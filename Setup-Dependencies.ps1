@@ -19,9 +19,10 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $external = Join-Path $root 'External'
 $umtPath = Join-Path $external 'UndertaleModTool'
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('SplitGM-Dependencies-' + [Guid]::NewGuid().ToString('N'))
-$pinnedCommit = '3faad3b8f33ffad03eab1baf8cb892e90f3aa9db'
+$revisionMarkerPath = Join-Path $umtPath '.splitgm-dependency-revisions.json'
+$pinnedCommit = '2b6fe69722cec25219f1ae21f8111907c2a15629'
 $headers = @{
-    'User-Agent' = 'SplitGM-VM-Decompiler-v0.5.0-Dependency-Setup'
+    'User-Agent' = 'SplitGM-VM-Decompiler-v0.5.1.0-Dependency-Setup'
     'Accept' = 'application/vnd.github+json'
 }
 
@@ -69,24 +70,6 @@ New-Item -ItemType Directory -Force -Path $external | Out-Null
 New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
 
 try {
-    if ((Test-Path -LiteralPath $umtPath) -and -not $Force) {
-        $libProject = Join-Path $umtPath 'UndertaleModLib\UndertaleModLib.csproj'
-        $underanalyzerProject = Join-Path $umtPath 'Underanalyzer\Underanalyzer\Underanalyzer.csproj'
-
-        if ((Test-Path -LiteralPath $libProject) -and (Test-Path -LiteralPath $underanalyzerProject)) {
-            Write-Host 'Dependencies are already present. Use -Force to download them again.' -ForegroundColor Yellow
-            Write-Host ''
-            Write-Host 'Dependencies are ready.' -ForegroundColor Cyan
-            Write-Host 'Open SplitGM-VM-Decompiler.sln in Visual Studio 2026 and build SplitGM.Gui.'
-            exit 0
-        }
-    }
-
-    if ($Force -and (Test-Path -LiteralPath $umtPath)) {
-        Write-Host 'Removing the existing dependency folder...' -ForegroundColor Yellow
-        Remove-Item -LiteralPath $umtPath -Recurse -Force
-    }
-
     if ($UseLatest) {
         Write-Step 'Resolving the latest UndertaleModTool master revision...'
         $commitInfo = Invoke-RestMethod `
@@ -97,6 +80,39 @@ try {
     else {
         $umtRevision = $pinnedCommit
         Write-Host "Using tested UndertaleModTool revision $umtRevision" -ForegroundColor Green
+    }
+
+    if ((Test-Path -LiteralPath $umtPath) -and -not $Force) {
+        $libProject = Join-Path $umtPath 'UndertaleModLib\UndertaleModLib.csproj'
+        $underanalyzerProject = Join-Path $umtPath 'Underanalyzer\Underanalyzer\Underanalyzer.csproj'
+        $installedUmtRevision = ''
+
+        if (Test-Path -LiteralPath $revisionMarkerPath) {
+            try {
+                $revisionMarker = Get-Content -LiteralPath $revisionMarkerPath -Raw | ConvertFrom-Json
+                $installedUmtRevision = [string]$revisionMarker.undertaleModTool
+            }
+            catch {
+                Write-Host 'The dependency revision marker is unreadable; dependencies will be refreshed.' -ForegroundColor Yellow
+            }
+        }
+
+        if ((Test-Path -LiteralPath $libProject) -and
+            (Test-Path -LiteralPath $underanalyzerProject) -and
+            ($installedUmtRevision -eq $umtRevision)) {
+            Write-Host "The requested UndertaleModTool revision is already installed: $umtRevision" -ForegroundColor Yellow
+            Write-Host ''
+            Write-Host 'Dependencies are ready.' -ForegroundColor Cyan
+            Write-Host 'Open SplitGM-VM-Decompiler.sln in Visual Studio 2026 and build SplitGM.Gui.'
+            return
+        }
+
+        Write-Host 'Existing dependencies are missing, unversioned, or from another revision; refreshing them...' -ForegroundColor Yellow
+        Remove-Item -LiteralPath $umtPath -Recurse -Force
+    }
+    elseif ($Force -and (Test-Path -LiteralPath $umtPath)) {
+        Write-Host 'Removing the existing dependency folder...' -ForegroundColor Yellow
+        Remove-Item -LiteralPath $umtPath -Recurse -Force
     }
 
     Write-Step 'Resolving the matching Underanalyzer submodule revision...'
@@ -131,6 +147,13 @@ try {
     if (-not (Test-Path -LiteralPath $underanalyzerProject)) {
         throw "Missing expected project after download: $underanalyzerProject"
     }
+
+    [ordered]@{
+        undertaleModTool = $umtRevision
+        underanalyzer = $underanalyzerRevision
+        installedBy = 'SplitGM-VM Decompiler v0.5.1.0'
+        installedUtc = [DateTime]::UtcNow.ToString('o')
+    } | ConvertTo-Json | Set-Content -LiteralPath $revisionMarkerPath -Encoding UTF8
 
     Write-Host ''
     Write-Host 'Dependencies are ready.' -ForegroundColor Cyan

@@ -1,7 +1,7 @@
 <Window x:Class="SplitGM.Gui.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="SplitGM Settings" Width="620" Height="610" MinWidth="560" MinHeight="520"
+        Title="SplitGM Settings" Width="660" Height="650" MinWidth="580" MinHeight="540"
         Icon="Resources/Brand/SplitGM.ico"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResize"
         Background="{StaticResource WindowBrush}">
@@ -40,6 +40,72 @@
                     <CheckBox x:Name="LineNumbersCheckBox" Content="Show line numbers in GML and VM assembly" Margin="0,0,0,12"/>
                     <CheckBox x:Name="WordWrapCheckBox" Content="Wrap long lines in code viewers" Margin="0,0,0,12"/>
                     <CheckBox x:Name="RememberWindowCheckBox" Content="Remember the main window size and position" Margin="0,0,0,12"/>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Startup">
+                <StackPanel Margin="16">
+                    <TextBlock Text="Startup display mode" FontWeight="SemiBold"/>
+                    <ComboBox x:Name="StartupModeComboBox"
+                              SelectedValuePath="Tag"
+                              Margin="0,7,0,16"
+                              MinWidth="370"
+                              HorizontalAlignment="Left">
+                        <ComboBoxItem Tag="Normal" Content="Normal — Play the complete animation"/>
+                        <ComboBoxItem Tag="FirstHalf" Content="First Half — Logo animation only"/>
+                        <ComboBoxItem Tag="SecondHalf" Content="Second Half — Splash-image animation only"/>
+                        <ComboBoxItem Tag="FirstHalfStatic" Content="First Half Static — Completed logo and SplitGM text"/>
+                        <ComboBoxItem Tag="SecondHalfStatic" Content="Second Half Static — Completed splash image"/>
+                    </ComboBox>
+
+                    <Border Background="#160E9AC0" BorderBrush="#5539BDE8" BorderThickness="1" CornerRadius="7" Padding="12">
+                        <StackPanel>
+                            <TextBlock Text="The launcher remains required" FontWeight="SemiBold"/>
+                            <TextBlock Margin="0,5,0,0" TextWrapping="Wrap"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       Text="The startup cannot be disabled and SplitGM must still be opened through SGMVMDLauncher.exe. This setting only changes which part of the embedded startup sequence is displayed. Changes apply the next time SplitGM starts."/>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Margin="0,16,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}"
+                               Text="Static modes keep the chosen frame visible for at least two seconds, and then leave it on screen while SplitGM finishes opening."/>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Game Profile">
+                <StackPanel Margin="16">
+                    <TextBlock Text="Game profile preference" FontWeight="SemiBold"/>
+                    <ComboBox x:Name="GameProfileComboBox"
+                              SelectedValuePath="Tag"
+                              Margin="0,7,0,14"
+                              MinWidth="300"
+                              HorizontalAlignment="Left">
+                        <ComboBoxItem Tag="AutoDetect" Content="Auto Detect"/>
+                        <ComboBoxItem Tag="Generic" Content="Generic GameMaker Game"/>
+                        <ComboBoxItem Tag="Undertale" Content="UNDERTALE"/>
+                        <ComboBoxItem Tag="Deltarune" Content="DELTARUNE"/>
+                    </ComboBox>
+                    <Border Background="#161D2A22" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="7" Padding="12">
+                        <StackPanel>
+                            <TextBlock Text="Profiles guide conservative compatibility behavior" FontWeight="SemiBold"/>
+                            <TextBlock Margin="0,5,0,0" TextWrapping="Wrap"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       Text="Auto Detect scores several metadata, path, executable, room, object, script, and code-name signals after a game is loaded. Manual Generic disables UNDERTALE and DELTARUNE-specific assumptions for renamed or heavily modded projects."/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Experimental">
+                <StackPanel Margin="16">
+                    <CheckBox x:Name="EnableReconstructedYypCheckBox"
+                              Content="Enable Decompile to .yyp Project"
+                              Margin="0,0,0,12"/>
+                    <Border Background="#221D1A10" BorderBrush="{StaticResource WarningBrush}" BorderThickness="1" CornerRadius="7" Padding="12">
+                        <StackPanel>
+                            <TextBlock Text="Experimental reconstructed .yyp export" FontWeight="SemiBold"/>
+                            <TextBlock Margin="0,5,0,0" TextWrapping="Wrap"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       Text="Generated GameMaker projects are transparent repair workspaces. They may still require manual repair, IDE validation, or compile fixes before they can run."/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </TabItem>
             <TabItem Header="Export Defaults">

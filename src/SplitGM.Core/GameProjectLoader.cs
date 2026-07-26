@@ -49,14 +49,10 @@ public sealed class GameProjectLoader
                        FileAccess.Read,
                        FileShare.Read))
             {
-                data = UndertaleIO.Read(
+                data = UmtNativePipeline.ReadGameData(
                     input,
-                    warningHandler: (message, important) =>
-                    {
-                        warnings.Add(message);
-                        log?.Report(LogMessage.Warning(message));
-                    },
-                    messageHandler: message => log?.Report(LogMessage.Info(message)));
+                    warnings,
+                    message => log?.Report(message));
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -69,6 +65,7 @@ public sealed class GameProjectLoader
             UndertaleGeneralInfo? generalInfo = data.GeneralInfo;
             string gameName = generalInfo?.Name?.Content ?? "Unknown Game";
             string displayName = generalInfo?.DisplayName?.Content ?? gameName;
+            string runnerExecutableName = generalInfo?.FileName?.Content ?? string.Empty;
             string version = generalInfo is null
                 ? "Unknown"
                 : $"{generalInfo.Major}.{generalInfo.Minor}.{generalInfo.Release}.{generalInfo.Build}";
@@ -76,6 +73,10 @@ public sealed class GameProjectLoader
             bool isYyc = data.IsYYC();
             bool unsupportedBytecode = data.UnsupportedBytecodeVersion;
             int rootCodeCount = data.Code?.Count(code => code is not null && code.ParentEntry is null) ?? 0;
+            DetectedGameProfile detectedProfile = GameProfileDetector.Detect(
+                data,
+                resolved.OriginalPath,
+                resolved.DataPath);
 
             (GameCompatibility compatibility, string compatibilityMessage) = DetermineCompatibility(
                 isYyc,
@@ -88,6 +89,7 @@ public sealed class GameProjectLoader
                     ? "Temporary embedded archive"
                     : resolved.DataPath,
                 ResolutionMethod: resolved.ResolutionMethod,
+                RunnerExecutableName: runnerExecutableName,
                 GameName: gameName,
                 DisplayName: displayName,
                 GameMakerVersion: version,
@@ -97,6 +99,7 @@ public sealed class GameProjectLoader
                 UnsupportedBytecodeVersion: unsupportedBytecode,
                 Compatibility: compatibility,
                 CompatibilityMessage: compatibilityMessage,
+                DetectedProfile: detectedProfile,
                 InputFileSize: new FileInfo(resolved.DataPath).Length,
                 LoadedAt: DateTimeOffset.Now);
 
@@ -134,6 +137,9 @@ public sealed class GameProjectLoader
             log?.Report(LogMessage.Info(
                 $"Resources: {counts.RootCodeEntries:N0} code entries, {counts.Objects:N0} objects, " +
                 $"{counts.Rooms:N0} rooms, {counts.Sprites:N0} sprites."));
+            log?.Report(LogMessage.Info(
+                $"Profile: {detectedProfile.DisplayName}; confidence {detectedProfile.Confidence}; " +
+                $"{detectedProfile.SelectionDescription}."));
 
             if (compatibility == GameCompatibility.Compatible)
                 log?.Report(LogMessage.Success(compatibilityMessage));

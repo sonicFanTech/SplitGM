@@ -1,6 +1,7 @@
 #nullable enable
 
 using Microsoft.Win32;
+using SplitGM.Core;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
@@ -24,6 +25,9 @@ public partial class SettingsWindow : Window
         LineNumbersCheckBox.IsChecked = settings.ShowLineNumbers;
         WordWrapCheckBox.IsChecked = settings.WordWrap;
         RememberWindowCheckBox.IsChecked = settings.RememberWindowPlacement;
+        StartupModeComboBox.SelectedValue = SplitGmSettings.NormalizeStartupDisplayMode(settings.StartupDisplayMode);
+        GameProfileComboBox.SelectedValue = GameProfileSupport.NormalizePreference(settings.GameProfilePreference);
+        EnableReconstructedYypCheckBox.IsChecked = settings.EnableReconstructedYypExport;
         ExportResourcesCheckBox.IsChecked = settings.ExportResources;
         ExportAssemblyCheckBox.IsChecked = settings.ExportAssembly;
         ExportIndexesCheckBox.IsChecked = settings.ExportIndexes;
@@ -68,6 +72,9 @@ public partial class SettingsWindow : Window
         _settings.ShowLineNumbers = LineNumbersCheckBox.IsChecked == true;
         _settings.WordWrap = WordWrapCheckBox.IsChecked == true;
         _settings.RememberWindowPlacement = RememberWindowCheckBox.IsChecked == true;
+        _settings.StartupDisplayMode = SplitGmSettings.NormalizeStartupDisplayMode(StartupModeComboBox.SelectedValue as string);
+        _settings.GameProfilePreference = GameProfileSupport.ParsePreference(GameProfileComboBox.SelectedValue as string);
+        _settings.EnableReconstructedYypExport = EnableReconstructedYypCheckBox.IsChecked == true;
         _settings.ExportResources = ExportResourcesCheckBox.IsChecked == true;
         _settings.ExportAssembly = ExportAssemblyCheckBox.IsChecked == true;
         _settings.ExportIndexes = ExportIndexesCheckBox.IsChecked == true;

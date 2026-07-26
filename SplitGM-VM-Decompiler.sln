@@ -2,13 +2,17 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.0.10000.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Underanalyzer", "External\UndertaleModTool\Underanalyzer\Underanalyzer\Underanalyzer.csproj", "{B2360D13-1D2B-4D4F-A04E-F2F2B2CF61B1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SGMVMDLauncher", "src\SGMVMDLauncher\SGMVMDLauncher.csproj", "{9B3F5A82-2BA4-4B08-988C-5D575E319142}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UndertaleModLib", "External\UndertaleModTool\UndertaleModLib\UndertaleModLib.csproj", "{C7A916DA-FA4F-4F85-9499-E36DD8E76F73}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SGMVMDLauncher.Playback", "src\SGMVMDLauncher.Playback\SGMVMDLauncher.Playback.csproj", "{D1D12C18-57A8-4E18-A7D4-5D26F5046AD7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SplitGM.Gui", "src\SplitGM.Gui\SplitGM.Gui.csproj", "{77D54C41-6B5D-4434-A98B-394FCFAD9CE5}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SplitGM.Core", "src\SplitGM.Core\SplitGM.Core.csproj", "{A01FC876-55F4-4B60-93A5-0530E2692B6B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SplitGM.Gui", "src\SplitGM.Gui\SplitGM.Gui.csproj", "{77D54C41-6B5D-4434-A98B-394FCFAD9CE5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UndertaleModLib", "External\UndertaleModTool\UndertaleModLib\UndertaleModLib.csproj", "{C7A916DA-FA4F-4F85-9499-E36DD8E76F73}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Underanalyzer", "External\UndertaleModTool\Underanalyzer\Underanalyzer\Underanalyzer.csproj", "{B2360D13-1D2B-4D4F-A04E-F2F2B2CF61B1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -50,6 +54,22 @@ Global
 		{77D54C41-6B5D-4434-A98B-394FCFAD9CE5}.Release|Any CPU.Build.0 = Release|Any CPU
 		{77D54C41-6B5D-4434-A98B-394FCFAD9CE5}.Release|x64.ActiveCfg = Release|x64
 		{77D54C41-6B5D-4434-A98B-394FCFAD9CE5}.Release|x64.Build.0 = Release|x64
+		{D1D12C18-57A8-4E18-A7D4-5D26F5046AD7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D1D12C18-57A8-4E18-A7D4-5D26F5046AD7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D1D12C18-57A8-4E18-A7D4-5D26F5046AD7}.Debug|x64.ActiveCfg = Debug|x64
+		{D1D12C18-57A8-4E18-A7D4-5D26F5046AD7}.Debug|x64.Build.0 = Debug|x64
+		{D1D12C18-57A8-4E18-A7D4-5D26F5046AD7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D1D12C18-57A8-4E18-A7D4-5D26F5046AD7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D1D12C18-57A8-4E18-A7D4-5D26F5046AD7}.Release|x64.ActiveCfg = Release|x64
+		{D1D12C18-57A8-4E18-A7D4-5D26F5046AD7}.Release|x64.Build.0 = Release|x64
+		{9B3F5A82-2BA4-4B08-988C-5D575E319142}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B3F5A82-2BA4-4B08-988C-5D575E319142}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B3F5A82-2BA4-4B08-988C-5D575E319142}.Debug|x64.ActiveCfg = Debug|x64
+		{9B3F5A82-2BA4-4B08-988C-5D575E319142}.Debug|x64.Build.0 = Debug|x64
+		{9B3F5A82-2BA4-4B08-988C-5D575E319142}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B3F5A82-2BA4-4B08-988C-5D575E319142}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9B3F5A82-2BA4-4B08-988C-5D575E319142}.Release|x64.ActiveCfg = Release|x64
+		{9B3F5A82-2BA4-4B08-988C-5D575E319142}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

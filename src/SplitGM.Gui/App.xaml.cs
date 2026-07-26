@@ -17,30 +17,44 @@ public partial class App : Application
         TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
         base.OnStartup(e);
 
-        // Create the main window manually rather than through StartupUri. When a WPF
-        // constructor or InitializeComponent() fails, this preserves the real inner
-        // exception instead of leaving only the generic XamlParseException wrapper.
+        // SplitGM is intentionally launcher-only. SGMVMDLauncher creates a one-time
+        // named-pipe authorization session and keeps it open until this main window
+        // is visible. A copied command-line flag without the live launcher pipe is
+        // not enough to start the application.
+        LauncherAuthorizationSession? launcherSession = null;
         try
         {
-            SplashScreen? splash = null;
-            try
-            {
-                splash = new SplashScreen("Resources/Brand/SplitGM_SPLASH.png");
-                splash.Show(autoClose: false, topMost: true);
-            }
-            catch
-            {
-                // A missing splash resource must never prevent the main application from opening.
-            }
+            launcherSession = LauncherAuthorizationSession
+                .OpenAsync(e.Args)
+                .GetAwaiter()
+                .GetResult();
 
+            // Create the main window manually rather than through StartupUri. When a WPF
+            // constructor or InitializeComponent() fails, this preserves the real inner
+            // exception instead of leaving only the generic XamlParseException wrapper.
             SplitGM.Gui.MainWindow window = new();
             MainWindow = window;
             window.Show();
-            splash?.Close(TimeSpan.FromMilliseconds(250));
+
+            launcherSession.SignalReadyAsync().GetAwaiter().GetResult();
+        }
+        catch (LauncherAuthorizationException ex)
+        {
+            MessageBox.Show(
+                $"SplitGM must be started through SGMVMDLauncher.exe.\n\n{ex.Message}\n\n" +
+                "Open SGMVMDLauncher.exe from the SplitGM program folder.",
+                "SplitGM direct startup blocked",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            Shutdown(2);
         }
         catch (Exception ex)
         {
             ShowFatalError(ex, "Application startup", shutDown: true);
+        }
+        finally
+        {
+            launcherSession?.Dispose();
         }
     }
 

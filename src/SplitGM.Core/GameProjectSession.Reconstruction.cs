@@ -116,38 +116,36 @@ public sealed partial class GameProjectSession
         Dictionary<int, CodeViewResult> codeViews = [];
         if (!Info.IsYyc)
         {
-            for (int position = 0; position < CodeEntries.Count; position++)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                CodeEntryInfo entry = CodeEntries[position];
-                progress?.Report(new ReconstructionProgress(
+            IReadOnlyDictionary<int, CodeViewResult> batchViews = await DecompileAllCodeAsync(
+                new Progress<DecompileProgress>(value => progress?.Report(new ReconstructionProgress(
                     ReconstructionStage.DecompilingCode,
-                    position,
-                    CodeEntries.Count,
-                    $"Decompiling code [{position + 1:N0}/{CodeEntries.Count:N0}] {entry.Name}",
-                    ResourceName: entry.Name,
-                    Status: "Decompiling"));
-                try
+                    value.Completed,
+                    value.Total,
+                    value.Message,
+                    ResourceName: null,
+                    Status: "UMT decompiler"))),
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            foreach ((int index, CodeViewResult view) in batchViews)
+            {
+                codeViews[index] = view;
+                if (!view.GmlSucceeded)
                 {
-                    CodeViewResult codeView = await GetCodeViewAsync(entry.Index, cancellationToken).ConfigureAwait(false);
-                    codeViews[entry.Index] = codeView;
-                    if (!codeView.GmlSucceeded)
-                    {
-                        AddMessage(
-                            "Warning",
-                            "CODE_GML_NOT_RECOVERED",
-                            $"GML could not be reconstructed safely for {entry.Name}. SplitGM preserved a failure marker and VM assembly when available.",
-                            StableId("Code", entry.Index, entry.Name));
-                    }
+                    AddMessage(
+                        "Warning",
+                        "CODE_GML_NOT_RECOVERED",
+                        $"GML could not be reconstructed safely for {view.Entry.Name}. SplitGM preserved a failure marker and VM assembly when available.",
+                        StableId("Code", view.Entry.Index, view.Entry.Name));
                 }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception exception)
-                {
-                    AddMessage("Error", "CODE_DECOMPILE_EXCEPTION", $"Failed to decompile {entry.Name}: {exception.Message}", StableId("Code", entry.Index, entry.Name));
-                }
+            }
+
+            foreach (CodeEntryInfo entry in CodeEntries.Where(entry => !codeViews.ContainsKey(entry.Index)))
+            {
+                AddMessage(
+                    "Error",
+                    "CODE_DECOMPILE_MISSING_RESULT",
+                    $"The UMT batch decompiler did not return a result for {entry.Name}.",
+                    StableId("Code", entry.Index, entry.Name));
             }
         }
 
@@ -174,21 +172,50 @@ public sealed partial class GameProjectSession
 
         Dictionary<(ResourceKind Kind, int Index), string> reconstructedNames = [];
         Dictionary<(ResourceKind Kind, int Index), string> stableIds = [];
+        Dictionary<string, HashSet<string>> identifierRenameCandidates = new(StringComparer.OrdinalIgnoreCase);
+        List<ReconstructionRepairAction> seedRepairActions = [];
+        HashSet<string> globalNameAllocator = new(StringComparer.OrdinalIgnoreCase);
         foreach (ResourceKind kind in Enum.GetValues<ResourceKind>())
         {
-            HashSet<string> allocated = new(StringComparer.OrdinalIgnoreCase);
             foreach (ResourceEntryInfo entry in GetResourceEntries(kind))
             {
-                string name = AllocateIdentifier(entry.Name, kind.ToString(), entry.Index, allocated);
+                string name = AllocateIdentifier(entry.Name, kind.ToString(), entry.Index, globalNameAllocator);
                 reconstructedNames[(kind, entry.Index)] = name;
                 stableIds[(kind, entry.Index)] = StableId(kind.ToString(), entry.Index, entry.Name);
+                RecordAllocatedNameRepair(entry.Name, name, kind.ToString(), entry.Index,
+                    identifierRenameCandidates, seedRepairActions);
             }
         }
 
-        HashSet<string> scriptNameAllocator = new(StringComparer.OrdinalIgnoreCase);
         Dictionary<int, string> scriptNames = [];
-        foreach (CodeEntryInfo entry in CodeEntries.Where(item => item.Category == CodeCategory.Scripts))
-            scriptNames[entry.Index] = AllocateIdentifier(StripCodePrefix(entry.Name, "gml_Script_"), "script", entry.Index, scriptNameAllocator);
+        foreach (CodeEntryInfo entry in CodeEntries.Where(item =>
+                     item.Category is CodeCategory.Scripts or CodeCategory.GlobalInit))
+        {
+            string sourceScriptName = StripKnownCodePrefix(entry.Name);
+            string scriptName = AllocateIdentifier(sourceScriptName, "script", entry.Index, globalNameAllocator);
+            scriptNames[entry.Index] = scriptName;
+            RecordAllocatedNameRepair(sourceScriptName, scriptName, "Code", entry.Index,
+                identifierRenameCandidates, seedRepairActions);
+            if (entry.Category == CodeCategory.GlobalInit)
+            {
+                seedRepairActions.Add(new ReconstructionRepairAction
+                {
+                    Id = "REGISTER-GLOBAL-SCRIPT",
+                    Category = "Missing GlobalInit / GlobalScript registration",
+                    Description = $"Registered compiled global code entry {entry.Name} as reconstructed GMScript {scriptName}.",
+                    RelativePath = $"scripts/{scriptName}/{scriptName}.yy",
+                    Before = entry.Name,
+                    After = scriptName,
+                    Confidence = RepairConfidence.High,
+                    Applied = true,
+                    Evidence = "The compiled code-entry name uses GameMaker's gml_GlobalInit_ or gml_GlobalScript_ prefix rather than an object, room, or timeline event prefix."
+                });
+            }
+        }
+
+        Dictionary<string, string> identifierRenames = BuildUnambiguousIdentifierRenameMap(
+            identifierRenameCandidates,
+            seedRepairActions);
 
         List<YypResourceReference> yypResources = [];
         List<YypResourceReference> roomOrder = [];
@@ -229,6 +256,7 @@ public sealed partial class GameProjectSession
         int represented = 0;
         int fallbackOnly = 0;
         int failures = 0;
+        long nextPreviewTimestamp = 0;
 
         // Send the complete workload to the dedicated progress window as one catalog
         // update. This keeps very large games responsive while still listing every
@@ -338,89 +366,138 @@ public sealed partial class GameProjectSession
                 continue;
 
             int maxWorkers = GetReconstructionParallelism(kind);
-            using TextureWorker categoryTextureWorker = new();
+            int completedInCategory = 0;
             ReconstructionWorkResult?[] results = new ReconstructionWorkResult?[entries.Count];
-            log?.Report(LogMessage.Info($"Exporting {kind} using {maxWorkers:N0} parallel worker(s)."));
+            IReadOnlyList<IReadOnlyList<int>>? spriteGroups = null;
+            if (kind == ResourceKind.Sprites)
+            {
+                // UMT's sprite exporter does not launch one independent job per sprite.
+                // It groups work by texture page, gives each page group its own
+                // TextureWorker, and limits outer parallelism to roughly core-count / 4.
+                // This avoids lock contention on shared MagickImage instances and bounds
+                // decoded texture-page memory. SplitGM uses connected page groups so a
+                // sprite spanning multiple pages still remains in one safe worker group.
+                spriteGroups = BuildUmtStyleSpriteGroups(entries);
+                log?.Report(LogMessage.Info(
+                    $"Exporting Sprites using UMT-style texture-page grouping: {spriteGroups.Count:N0} group(s), {maxWorkers:N0} parallel worker(s)."));
+            }
+            else
+            {
+                log?.Report(LogMessage.Info($"Exporting {kind} using {maxWorkers:N0} parallel worker(s)."));
+            }
 
-            await Task.Run(() => Parallel.For(
-                0,
-                entries.Count,
-                new ParallelOptions
+            void ExportPosition(int position, TextureWorker textureWorker)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ResourceEntryInfo entry = entries[position];
+                string reconstructedName = reconstructedNames[(kind, entry.Index)];
+                string stableId = stableIds[(kind, entry.Index)];
+                string statusPath = SuggestedResourcePath(kind, reconstructedName);
+                int current = Volatile.Read(ref completedResourceWork);
+
+                progress?.Report(new ReconstructionProgress(
+                    ReconstructionStage.ExportingResources,
+                    current,
+                    totalResourceWork,
+                    kind == ResourceKind.Sprites
+                        ? $"Exporting {kind} with UMT-style texture-page workers: {entry.Name} ({Volatile.Read(ref completedInCategory):N0}/{entries.Count:N0} in category)"
+                        : $"Exporting {kind} with {maxWorkers:N0} worker(s): {entry.Name} ({Volatile.Read(ref completedInCategory):N0}/{entries.Count:N0} in category)",
+                    kind,
+                    entry.Index,
+                    entry.Name,
+                    statusPath,
+                    null,
+                    "Exporting",
+                    null));
+
+                try
                 {
-                    CancellationToken = cancellationToken,
-                    MaxDegreeOfParallelism = maxWorkers
-                },
-                position =>
+                    ResourceExportOutcome outcome = ExportReconstructionResource(
+                        outputDirectory,
+                        kind,
+                        entry,
+                        reconstructedName,
+                        reconstructedNames,
+                        stableIds,
+                        codeViews,
+                        options,
+                        textureWorker,
+                        cancellationToken);
+
+                    string completedStatus = outcome.Resource.RepresentedInYyp ? "Complete" : "Fallback";
+                    if (outcome.Messages.Any(message =>
+                            message.Severity.Equals("Warning", StringComparison.OrdinalIgnoreCase) ||
+                            message.Severity.Equals("Error", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        completedStatus = outcome.Resource.RepresentedInYyp ? "Partial" : "Fallback";
+                    }
+
+                    // A preview is optional UI decoration. Reading every exported PNG
+                    // doubled disk traffic and allocated a byte array for every sprite.
+                    // Sample at most four previews per second, like UMT's polled progress
+                    // updater, while the actual exported files remain authoritative.
+                    byte[]? preview = TryClaimPreviewSample(ref nextPreviewTimestamp)
+                        ? TryLoadExportedPreview(outputDirectory, outcome.Resource.Files)
+                        : null;
+                    results[position] = new ReconstructionWorkResult(entry, reconstructedName, stableId, statusPath, outcome, null, completedStatus, preview);
+                }
+                catch (OperationCanceledException)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    ResourceEntryInfo entry = entries[position];
-                    string reconstructedName = reconstructedNames[(kind, entry.Index)];
-                    string stableId = stableIds[(kind, entry.Index)];
-                    string statusPath = SuggestedResourcePath(kind, reconstructedName);
-                    int current = Volatile.Read(ref completedResourceWork);
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    results[position] = new ReconstructionWorkResult(entry, reconstructedName, stableId, statusPath, null, exception, "Failed", null);
+                }
 
-                    progress?.Report(new ReconstructionProgress(
-                        ReconstructionStage.ExportingResources,
-                        current,
-                        totalResourceWork,
-                        $"Exporting {kind} with {maxWorkers:N0} worker(s): {entry.Name}",
-                        kind,
-                        entry.Index,
-                        entry.Name,
-                        statusPath,
-                        null,
-                        "Exporting",
-                        null));
+                int categoryDone = Interlocked.Increment(ref completedInCategory);
+                int done = Interlocked.Increment(ref completedResourceWork);
+                ReconstructionWorkResult completed = results[position]!;
+                progress?.Report(new ReconstructionProgress(
+                    ReconstructionStage.ExportingResources,
+                    done,
+                    totalResourceWork,
+                    $"Finished {kind}: {entry.Name} ({categoryDone:N0}/{entries.Count:N0} in category)",
+                    kind,
+                    entry.Index,
+                    entry.Name,
+                    statusPath,
+                    completed.PreviewPng,
+                    completed.Status,
+                    null));
+            }
 
-                    try
+            if (kind == ResourceKind.Sprites)
+            {
+                IReadOnlyList<IReadOnlyList<int>> groups = spriteGroups!;
+                await Task.Run(() => Parallel.ForEach(
+                    groups,
+                    new ParallelOptions
                     {
-                        ResourceExportOutcome outcome = ExportReconstructionResource(
-                            outputDirectory,
-                            kind,
-                            entry,
-                            reconstructedName,
-                            reconstructedNames,
-                            stableIds,
-                            codeViews,
-                            options,
-                            categoryTextureWorker,
-                            cancellationToken);
-
-                        string completedStatus = outcome.Resource.RepresentedInYyp ? "Complete" : "Fallback";
-                        if (outcome.Messages.Any(message =>
-                                message.Severity.Equals("Warning", StringComparison.OrdinalIgnoreCase) ||
-                                message.Severity.Equals("Error", StringComparison.OrdinalIgnoreCase)))
-                        {
-                            completedStatus = outcome.Resource.RepresentedInYyp ? "Partial" : "Fallback";
-                        }
-
-                        byte[]? preview = TryLoadExportedPreview(outputDirectory, outcome.Resource.Files);
-                        results[position] = new ReconstructionWorkResult(entry, reconstructedName, stableId, statusPath, outcome, null, completedStatus, preview);
-                    }
-                    catch (OperationCanceledException)
+                        CancellationToken = cancellationToken,
+                        MaxDegreeOfParallelism = maxWorkers
+                    },
+                    group =>
                     {
-                        throw;
-                    }
-                    catch (Exception exception)
+                        using TextureWorker groupTextureWorker = new();
+                        foreach (int position in group)
+                            ExportPosition(position, groupTextureWorker);
+                    }), cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                using TextureWorker categoryTextureWorker = new();
+                await Task.Run(() => Parallel.For(
+                    0,
+                    entries.Count,
+                    new ParallelOptions
                     {
-                        results[position] = new ReconstructionWorkResult(entry, reconstructedName, stableId, statusPath, null, exception, "Failed", null);
-                    }
-
-                    int done = Interlocked.Increment(ref completedResourceWork);
-                    ReconstructionWorkResult completed = results[position]!;
-                    progress?.Report(new ReconstructionProgress(
-                        ReconstructionStage.ExportingResources,
-                        done,
-                        totalResourceWork,
-                        $"Finished {kind}: {entry.Name}",
-                        kind,
-                        entry.Index,
-                        entry.Name,
-                        statusPath,
-                        completed.PreviewPng,
-                        completed.Status,
-                        null));
-                }), cancellationToken).ConfigureAwait(false);
+                        CancellationToken = cancellationToken,
+                        MaxDegreeOfParallelism = maxWorkers
+                    },
+                    position => ExportPosition(position, categoryTextureWorker)),
+                    cancellationToken).ConfigureAwait(false);
+            }
 
             // Merge in source order so the intermediate project and .yyp remain deterministic.
             foreach (ReconstructionWorkResult result in results.Where(item => item is not null).Select(item => item!))
@@ -478,11 +555,39 @@ public sealed partial class GameProjectSession
             "Writing the reconstructed .yyp project and resource order..."));
         JsonObject yyp = CreateProjectJson(projectName, profile, yypResources, roomOrder, folders, audioGroups);
         WriteJsonNode(projectFilePath, yyp);
-        WriteJsonNode(
-            Path.Combine(outputDirectory, projectName + ".resource_order"),
-            CreateResourceOrderJson(yypResources, folders));
+        string resourceOrderPath = Path.Combine(outputDirectory, projectName + ".resource_order");
+        WriteJsonNode(resourceOrderPath, CreateResourceOrderJson(yypResources, folders));
         WriteFolderFiles(outputDirectory, folders);
         WriteReconstructionReadme(outputDirectory, projectName, profile, represented, fallbackOnly, failures, document.Messages);
+        // Write the initial intermediate document before repair so the preserved mirror
+        // contains the exact pre-repair .splitgmproj alongside the .yyp/.yy/.gml files.
+        WriteReconstructionJson(intermediateFilePath, document);
+
+        ReconstructionRepairResult? repairResult = null;
+        if (options.RunAutomaticRepair)
+        {
+            HashSet<string> knownProjectFunctions = new(scriptNames.Values, StringComparer.OrdinalIgnoreCase);
+            knownProjectFunctions.UnionWith(GetResourceNames(ResourceKind.Functions));
+            knownProjectFunctions.UnionWith(CodeEntries.Select(entry => StripKnownCodePrefix(entry.Name)));
+            IReadOnlyCollection<string> extensionFunctions = GetExtensionFunctionNames();
+            repairResult = ReconstructedProjectRepairService.Run(
+                outputDirectory,
+                projectFilePath,
+                resourceOrderPath,
+                document,
+                identifierRenames,
+                knownProjectFunctions,
+                extensionFunctions,
+                seedRepairActions,
+                progress,
+                cancellationToken);
+
+            AddMessage(
+                repairResult.ManualReviewItems == 0 ? "Info" : "Warning",
+                "AUTOMATIC_REPAIR_COMPLETE",
+                $"Automatic reconstructed-project repair applied {repairResult.AppliedRepairs:N0} repair(s), recorded {repairResult.ManualReviewItems:N0} manual-review item(s), and {(repairResult.Preflight.Passed ? "passed" : "did not fully pass")} static compile preflight.",
+                path: Path.GetRelativePath(outputDirectory, repairResult.TextReportFile).Replace('\\', '/'));
+        }
 
         progress?.Report(new ReconstructionProgress(
             ReconstructionStage.ValidatingProject,
@@ -501,6 +606,17 @@ public sealed partial class GameProjectSession
             Messages = document.Messages
         });
         WriteValidationText(Path.Combine(outputDirectory, "SplitGM-Reconstruction-Validation.txt"), validation, document.Messages);
+        WriteReconstructionReport(
+            Path.Combine(outputDirectory, "SplitGM_Reconstruction_Report.txt"),
+            projectFileName,
+            profile,
+            options.GameProfile ?? Info.DetectedProfile,
+            represented,
+            fallbackOnly,
+            failures,
+            repairResult,
+            validation,
+            document.Messages);
         WriteReconstructionJson(intermediateFilePath, document);
 
         stopwatch.Stop();
@@ -528,7 +644,11 @@ public sealed partial class GameProjectSession
             failures,
             warningCount,
             errorCount,
-            stopwatch.Elapsed);
+            stopwatch.Elapsed,
+            repairResult?.TextReportFile ?? string.Empty,
+            repairResult?.AppliedRepairs ?? 0,
+            repairResult?.ManualReviewItems ?? 0,
+            repairResult?.Preflight.Passed ?? false);
     }
 
     private ResourceExportOutcome ExportReconstructionResource(
@@ -661,6 +781,15 @@ public sealed partial class GameProjectSession
         string relativeAudio = $"sounds/{name}/{audioFileName}";
         string relativeYy = $"sounds/{name}/{name}.yy";
         File.WriteAllBytes(Path.Combine(outputDirectory, relativeAudio), payload.Data);
+        List<string> outputFiles = [relativeYy, relativeAudio];
+        foreach (string waveformPath in ExportWaveformFiles(
+                     Path.Combine(outputDirectory, "sounds", name, name),
+                     payload.Data,
+                     payload.Format,
+                     cancellationToken))
+        {
+            outputFiles.Add(Path.GetRelativePath(outputDirectory, waveformPath).Replace('\\', '/'));
+        }
 
         int groupIndex = Math.Max(0, payload.GroupId);
         string groupName = reconstructedNames.TryGetValue((ResourceKind.AudioGroups, groupIndex), out string? mappedGroup)
@@ -669,6 +798,7 @@ public sealed partial class GameProjectSession
         WriteJsonNode(Path.Combine(outputDirectory, relativeYy), CreateSoundJson(name, audioFileName, groupName, sound));
         string metadataRelative = $"__SplitGM_Metadata/Sounds/{name}.details.txt";
         WriteMetadataFile(outputDirectory, metadataRelative, GetResourceDetails(ResourceKind.Sounds, entry.Index));
+        outputFiles.Add(metadataRelative);
 
         string stableId = stableIds[(ResourceKind.Sounds, entry.Index)];
         List<SplitGmProjectRelationship> relationships = [];
@@ -703,7 +833,7 @@ public sealed partial class GameProjectSession
                 YypResourcePath = relativeYy,
                 RepresentedInYyp = true,
                 ExportSucceeded = true,
-                Files = [relativeYy, relativeAudio, metadataRelative],
+                Files = outputFiles,
                 Warnings = messages.Select(message => message.Message).ToList()
             },
             new YypResourceReference(name, relativeYy, "Sounds"),
@@ -1252,7 +1382,7 @@ public sealed partial class GameProjectSession
         string fallbackPath = files.FirstOrDefault() ?? $"__SplitGM_Unrepresented/{GetResourceCategoryDirectoryName(kind)}";
         messages.Add(WarningMessage(
             "RESOURCE_NOT_SAFELY_REPRESENTABLE",
-            $"{kind} resource {entry.Name} was exported as inspectable fallback data but was not added to the .yyp because SplitGM v0.5.0 cannot represent this compiled resource type safely yet.",
+            $"{kind} resource {entry.Name} was exported as inspectable fallback data but was not added to the .yyp because SplitGM v0.5.1.0 cannot represent this compiled resource type safely yet.",
             stableId,
             fallbackPath));
 
@@ -2095,9 +2225,247 @@ public sealed partial class GameProjectSession
             }
         }
 
+        ValidateGameMakerResourceStructure(outputDirectory, projectFilePath, resources, messages, summary);
+
         summary.WarningCount = messages.Count(message => message.Severity.Equals("Warning", StringComparison.OrdinalIgnoreCase));
         summary.ErrorCount = messages.Count(message => message.Severity.Equals("Error", StringComparison.OrdinalIgnoreCase));
         return summary;
+    }
+
+    private static void ValidateGameMakerResourceStructure(
+        string outputDirectory,
+        string projectFilePath,
+        IReadOnlyList<YypResourceReference> resources,
+        List<SplitGmReconstructionMessage> messages,
+        SplitGmValidationSummary summary)
+    {
+        Dictionary<string, string> typeByPath = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, JsonObject> objectByPath = new(StringComparer.OrdinalIgnoreCase);
+        int resourceListTypeErrors = 0;
+
+        foreach (YypResourceReference resource in resources)
+        {
+            string resourcePath = Path.Combine(outputDirectory, resource.Path.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(resourcePath))
+                continue;
+
+            JsonObject? root = TryParseJsonObject(resourcePath);
+            if (root is null)
+                continue;
+
+            string type = GetJsonString(root["resourceType"]) ?? string.Empty;
+            typeByPath[resource.Path] = type;
+            objectByPath[resource.Path] = root;
+
+            string expectedType = ExpectedResourceTypeForYypPath(resource.Path);
+            if (expectedType.Length > 0 && !type.Equals(expectedType, StringComparison.OrdinalIgnoreCase))
+            {
+                resourceListTypeErrors++;
+                messages.Add(new SplitGmReconstructionMessage
+                {
+                    Severity = "Error",
+                    Code = "YYP_RESOURCE_LIST_TYPE_MISMATCH",
+                    Message = $"The .yyp resource {resource.Name} is listed under {resource.Path}, but its resourceType is {type} instead of {expectedType}.",
+                    Path = resource.Path
+                });
+            }
+        }
+
+        summary.ChecksPerformed++;
+        summary.ProjectResourceListTypesValid = resourceListTypeErrors == 0;
+        if (summary.ProjectResourceListTypesValid)
+            summary.PassedChecks++;
+
+        summary.ChecksPerformed++;
+        int roomOrderErrors = 0;
+        JsonObject? projectRoot = TryParseJsonObject(projectFilePath);
+        if (projectRoot?["RoomOrderNodes"] is JsonArray roomOrderNodes)
+        {
+            foreach (JsonNode? node in roomOrderNodes)
+            {
+                if (node is not JsonObject orderNode || orderNode["roomId"] is not JsonObject roomId)
+                    continue;
+
+                string path = GetJsonString(roomId["path"]) ?? string.Empty;
+                if (!typeByPath.TryGetValue(path, out string? type) ||
+                    !type.Equals("GMRoom", StringComparison.OrdinalIgnoreCase))
+                {
+                    roomOrderErrors++;
+                    messages.Add(new SplitGmReconstructionMessage
+                    {
+                        Severity = "Error",
+                        Code = "YYP_ROOM_ORDER_NOT_ROOM",
+                        Message = "RoomOrderNodes contains an entry that does not point to a valid GMRoom resource.",
+                        Path = path
+                    });
+                }
+            }
+        }
+        summary.RoomOrderEntriesReferenceRooms = roomOrderErrors == 0;
+        if (summary.RoomOrderEntriesReferenceRooms)
+            summary.PassedChecks++;
+
+        summary.ChecksPerformed++;
+        int instanceOrderErrors = 0;
+        int layerErrors = 0;
+        int objectReferenceErrors = 0;
+        foreach ((string roomPath, JsonObject roomRoot) in objectByPath.Where(pair =>
+                     string.Equals(GetJsonString(pair.Value["resourceType"]), "GMRoom", StringComparison.OrdinalIgnoreCase)))
+        {
+            summary.RoomFilesChecked++;
+            HashSet<string> instanceNames = new(StringComparer.OrdinalIgnoreCase);
+
+            if (roomRoot["layers"] is not JsonArray layers)
+            {
+                layerErrors++;
+                messages.Add(new SplitGmReconstructionMessage
+                {
+                    Severity = "Error",
+                    Code = "ROOM_LAYERS_NOT_ARRAY",
+                    Message = "A generated room does not contain a valid layers array.",
+                    Path = roomPath
+                });
+                continue;
+            }
+
+            foreach (JsonNode? layerNode in layers)
+            {
+                if (layerNode is not JsonObject layer)
+                {
+                    layerErrors++;
+                    continue;
+                }
+
+                string layerType = GetJsonString(layer["resourceType"]) ?? string.Empty;
+                if (layerType is not ("GMRInstanceLayer" or "GMRBackgroundLayer"))
+                {
+                    layerErrors++;
+                    messages.Add(new SplitGmReconstructionMessage
+                    {
+                        Severity = "Error",
+                        Code = "ROOM_LAYER_TYPE_INVALID",
+                        Message = $"Unsupported room layer resourceType in generated room: {layerType}.",
+                        Path = roomPath
+                    });
+                    continue;
+                }
+
+                if (layerType == "GMRInstanceLayer" && layer["instances"] is JsonArray instances)
+                {
+                    foreach (JsonNode? instanceNode in instances)
+                    {
+                        if (instanceNode is not JsonObject instance)
+                        {
+                            layerErrors++;
+                            continue;
+                        }
+
+                        string instanceName = GetJsonString(instance["name"]) ?? string.Empty;
+                        if (!string.IsNullOrWhiteSpace(instanceName))
+                            instanceNames.Add(instanceName);
+
+                        if (!string.Equals(GetJsonString(instance["resourceType"]), "GMRInstance", StringComparison.OrdinalIgnoreCase))
+                        {
+                            layerErrors++;
+                            messages.Add(new SplitGmReconstructionMessage
+                            {
+                                Severity = "Error",
+                                Code = "ROOM_INSTANCE_TYPE_INVALID",
+                                Message = "An instance layer contains an item that is not a GMRInstance.",
+                                Path = roomPath
+                            });
+                        }
+
+                        if (instance["objectId"] is JsonObject objectId)
+                        {
+                            string objectPath = GetJsonString(objectId["path"]) ?? string.Empty;
+                            if (!typeByPath.TryGetValue(objectPath, out string? objectType) ||
+                                !objectType.Equals("GMObject", StringComparison.OrdinalIgnoreCase))
+                            {
+                                objectReferenceErrors++;
+                                messages.Add(new SplitGmReconstructionMessage
+                                {
+                                    Severity = "Error",
+                                    Code = "ROOM_INSTANCE_OBJECT_NOT_OBJECT",
+                                    Message = "A room instance references a resource that is not a valid GMObject.",
+                                    Path = objectPath
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (roomRoot["instanceCreationOrder"] is JsonArray creationOrder)
+            {
+                foreach (JsonNode? orderNode in creationOrder)
+                {
+                    if (orderNode is not JsonObject orderObject)
+                    {
+                        instanceOrderErrors++;
+                        continue;
+                    }
+
+                    string name = GetJsonString(orderObject["name"]) ?? string.Empty;
+                    string path = GetJsonString(orderObject["path"]) ?? string.Empty;
+                    if (!instanceNames.Contains(name) || !path.Equals(roomPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        instanceOrderErrors++;
+                        messages.Add(new SplitGmReconstructionMessage
+                        {
+                            Severity = "Error",
+                            Code = "ROOM_INSTANCE_CREATION_ORDER_INVALID",
+                            Message = $"instanceCreationOrder entry {name} must reference a GMRInstance in the same room, not the room resource itself.",
+                            Path = roomPath
+                        });
+                    }
+                }
+            }
+        }
+
+        summary.RoomInstanceOrderErrors = instanceOrderErrors;
+        summary.RoomLayerErrors = layerErrors;
+        summary.RoomInstanceObjectReferenceErrors = objectReferenceErrors;
+        summary.RoomInstanceCreationOrderValid = instanceOrderErrors == 0;
+        summary.RoomLayerCollectionsValid = layerErrors == 0;
+        summary.RoomInstanceObjectReferencesValid = objectReferenceErrors == 0;
+        if (summary.RoomInstanceCreationOrderValid &&
+            summary.RoomLayerCollectionsValid &&
+            summary.RoomInstanceObjectReferencesValid)
+        {
+            summary.PassedChecks++;
+        }
+    }
+
+    private static string ExpectedResourceTypeForYypPath(string path)
+    {
+        string normalized = path.Replace('\\', '/');
+        if (normalized.StartsWith("scripts/", StringComparison.OrdinalIgnoreCase)) return "GMScript";
+        if (normalized.StartsWith("objects/", StringComparison.OrdinalIgnoreCase)) return "GMObject";
+        if (normalized.StartsWith("rooms/", StringComparison.OrdinalIgnoreCase)) return "GMRoom";
+        if (normalized.StartsWith("sprites/", StringComparison.OrdinalIgnoreCase)) return "GMSprite";
+        if (normalized.StartsWith("sounds/", StringComparison.OrdinalIgnoreCase)) return "GMSound";
+        if (normalized.StartsWith("paths/", StringComparison.OrdinalIgnoreCase)) return "GMPath";
+        return string.Empty;
+    }
+
+    private static string? GetJsonString(JsonNode? node)
+    {
+        return node is JsonValue value && value.TryGetValue(out string? text)
+            ? text
+            : null;
+    }
+
+    private static JsonObject? TryParseJsonObject(string path)
+    {
+        try
+        {
+            return JsonNode.Parse(File.ReadAllText(path)) as JsonObject;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static void WriteValidationText(
@@ -2122,10 +2490,80 @@ public sealed partial class GameProjectSession
         text.AppendLine($"Resource names unique within type: {summary.ResourceNamesAreUniqueWithinType}");
         text.AppendLine($"Stable resource IDs unique: {summary.StableResourceIdsAreUnique}");
         text.AppendLine($"Relationship endpoints resolved: {summary.RelationshipEndpointsResolved}");
+        text.AppendLine($"Project resource list types valid: {summary.ProjectResourceListTypesValid}");
+        text.AppendLine($"Room order entries reference rooms: {summary.RoomOrderEntriesReferenceRooms}");
+        text.AppendLine($"Room files checked: {summary.RoomFilesChecked:N0}");
+        text.AppendLine($"Room instance creation order valid: {summary.RoomInstanceCreationOrderValid} ({summary.RoomInstanceOrderErrors:N0} errors)");
+        text.AppendLine($"Room layer collections valid: {summary.RoomLayerCollectionsValid} ({summary.RoomLayerErrors:N0} errors)");
+        text.AppendLine($"Room instance object references valid: {summary.RoomInstanceObjectReferencesValid} ({summary.RoomInstanceObjectReferenceErrors:N0} errors)");
         text.AppendLine();
         foreach (SplitGmReconstructionMessage message in messages)
             text.AppendLine($"[{message.Severity}] {message.Code}: {message.Message}{(string.IsNullOrWhiteSpace(message.Path) ? string.Empty : " (" + message.Path + ")")}");
         File.WriteAllText(path, text.ToString(), new UTF8Encoding(false));
+    }
+
+    private void WriteReconstructionReport(
+        string path,
+        string projectFileName,
+        ReconstructionTargetProfile targetProfile,
+        DetectedGameProfile gameProfile,
+        int represented,
+        int fallbackOnly,
+        int failures,
+        ReconstructionRepairResult? repairResult,
+        SplitGmValidationSummary validation,
+        IEnumerable<SplitGmReconstructionMessage> messages)
+    {
+        SplitGmReconstructionMessage[] messageArray = messages.ToArray();
+        StringBuilder report = new();
+        report.AppendLine("SplitGM Reconstruction Report");
+        report.AppendLine("=============================");
+        report.AppendLine($"Generated: {DateTimeOffset.Now:O}");
+        report.AppendLine($"Project: {projectFileName}");
+        report.AppendLine($"Game profile: {gameProfile.DisplayName}");
+        report.AppendLine($"Profile selection: {gameProfile.SelectionDescription}");
+        report.AppendLine($"Profile confidence: {gameProfile.Confidence}");
+        report.AppendLine($"Target GameMaker schema/profile: {targetProfile.Description}");
+        report.AppendLine($"Target IDE version: {targetProfile.IdeVersion}");
+        report.AppendLine();
+        report.AppendLine("Exported Resource Counts");
+        report.AppendLine("------------------------");
+        foreach ((string label, int count) in EnumerateCounts())
+            report.AppendLine($"{label,-24} {count,10:N0}");
+        report.AppendLine();
+        report.AppendLine($"Represented in .yyp: {represented:N0}");
+        report.AppendLine($"Preserved under __SplitGM_Unrepresented: {fallbackOnly:N0}");
+        report.AppendLine($"Export failures: {failures:N0}");
+        report.AppendLine($"Automatic repairs applied: {repairResult?.AppliedRepairs ?? 0:N0}");
+        report.AppendLine($"Manual repair items: {repairResult?.ManualReviewItems ?? 0:N0}");
+        report.AppendLine($"Structural validation passed: {validation.ErrorCount == 0}");
+        report.AppendLine($"GameMaker opening actually tested: No");
+        report.AppendLine($"GameMaker compilation actually tested: No");
+        report.AppendLine();
+        report.AppendLine("Structural Validation");
+        report.AppendLine("---------------------");
+        report.AppendLine($"Checks performed: {validation.ChecksPerformed:N0}");
+        report.AppendLine($"Checks passed: {validation.PassedChecks:N0}");
+        report.AppendLine($"Warnings: {validation.WarningCount:N0}");
+        report.AppendLine($"Errors: {validation.ErrorCount:N0}");
+        report.AppendLine($"Project resource list types valid: {validation.ProjectResourceListTypesValid}");
+        report.AppendLine($"Room order entries reference rooms: {validation.RoomOrderEntriesReferenceRooms}");
+        report.AppendLine($"Room instance creation order valid: {validation.RoomInstanceCreationOrderValid}");
+        report.AppendLine($"Room layer collections valid: {validation.RoomLayerCollectionsValid}");
+        report.AppendLine($"Room instance object references valid: {validation.RoomInstanceObjectReferencesValid}");
+        report.AppendLine();
+        report.AppendLine("Manual Repair Notes");
+        report.AppendLine("-------------------");
+        report.AppendLine("Opening and compiling are different levels of success. This static report only validates generated files and references.");
+        report.AppendLine("Open the .yyp in GameMaker and record any IDE linker/build errors separately.");
+        report.AppendLine();
+        foreach (SplitGmReconstructionMessage message in messageArray)
+        {
+            if (message.Severity.Equals("Info", StringComparison.OrdinalIgnoreCase))
+                continue;
+            report.AppendLine($"[{message.Severity}] {message.Code}: {message.Message}{(string.IsNullOrWhiteSpace(message.Path) ? string.Empty : " (" + message.Path + ")")}");
+        }
+        File.WriteAllText(path, report.ToString(), new UTF8Encoding(false));
     }
 
     private static void WriteReconstructionReadme(
@@ -2153,12 +2591,16 @@ public sealed partial class GameProjectSession
         readme.AppendLine($"Errors: {errors:N0}");
         readme.AppendLine();
         readme.AppendLine("This project is reconstructed, not identical to the original source project.");
-        readme.AppendLine("Open it as a repair workspace. Review the validation report and the");
-        readme.AppendLine("__SplitGM_Unrepresented folder before attempting to compile.");
+        readme.AppendLine("Open it as a repair workspace. Review the automatic repair report,");
+        readme.AppendLine("validation report, and __SplitGM_Unrepresented folder before compiling.");
         readme.AppendLine();
         readme.AppendLine("Important files:");
         readme.AppendLine($"- {projectName}.splitgmproj: stable versioned intermediate project document");
-        readme.AppendLine("- SplitGM-Reconstruction-Validation.txt/.json: validation and repair warnings");
+        readme.AppendLine("- SplitGM_Reconstruction_Report.txt: summary of profile, schema, validation, and remaining manual checks");
+        readme.AppendLine("- SplitGM-Repair-Report.txt/.json: every automatic repair, confidence, and manual step");
+        readme.AppendLine("- SplitGM-Unresolved-Functions.txt: extension and unresolved-call candidates");
+        readme.AppendLine("- SplitGM-Reconstruction-Validation.txt/.json: post-repair structural validation");
+        readme.AppendLine("- __SplitGM_OriginalDecompilerOutput: untouched pre-repair generated source/project files");
         readme.AppendLine("- __SplitGM_Metadata: inspectable metadata and room previews");
         readme.AppendLine("- __SplitGM_Unrepresented: resource data that could not be represented safely in .yyp");
         File.WriteAllText(Path.Combine(outputDirectory, "README-SplitGM-Reconstructed-Project.txt"), readme.ToString(), new UTF8Encoding(false));
@@ -2316,6 +2758,129 @@ public sealed partial class GameProjectSession
     private static string StripCodePrefix(string value, string prefix) =>
         value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? value[prefix.Length..] : value;
 
+    private static string StripKnownCodePrefix(string value)
+    {
+        foreach (string prefix in new[] { "gml_Script_", "gml_GlobalScript_", "gml_GlobalInit_" })
+        {
+            if (value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                return value[prefix.Length..];
+        }
+        return value;
+    }
+
+    private static void RecordAllocatedNameRepair(
+        string sourceName,
+        string reconstructedName,
+        string sourceType,
+        int sourceIndex,
+        IDictionary<string, HashSet<string>> identifierRenameCandidates,
+        ICollection<ReconstructionRepairAction> actions)
+    {
+        string normalizedSource = MakeGameMakerIdentifier(sourceName, sourceType + "_" + sourceIndex);
+        if (IsGameMakerIdentifier(sourceName))
+            AddRenameCandidate(identifierRenameCandidates, sourceName, reconstructedName);
+        if (IsGameMakerIdentifier(normalizedSource))
+            AddRenameCandidate(identifierRenameCandidates, normalizedSource, reconstructedName);
+
+        if (string.Equals(sourceName, reconstructedName, StringComparison.Ordinal))
+            return;
+
+        bool collisionSuffix = reconstructedName.Contains("_sgm", StringComparison.OrdinalIgnoreCase);
+        actions.Add(new ReconstructionRepairAction
+        {
+            Id = collisionSuffix ? "RESOURCE-NAME-COLLISION" : "RESOURCE-NAME-SANITIZED",
+            Category = collisionSuffix
+                ? "Invalid, unsafe, duplicate, or case-insensitive resource name"
+                : "Invalid or unsafe resource name",
+            Description = collisionSuffix
+                ? $"Assigned a unique global GameMaker identifier to {sourceType} resource #{sourceIndex} to avoid a case-insensitive asset-name collision."
+                : $"Converted {sourceType} resource #{sourceIndex} to a safe GameMaker identifier.",
+            Before = sourceName,
+            After = reconstructedName,
+            Confidence = RepairConfidence.High,
+            Applied = true,
+            Evidence = "The reconstructed project uses one case-insensitive asset namespace for code-visible resource identifiers."
+        });
+    }
+
+    private static void AddRenameCandidate(
+        IDictionary<string, HashSet<string>> candidates,
+        string source,
+        string target)
+    {
+        if (!candidates.TryGetValue(source, out HashSet<string>? targets))
+        {
+            targets = new HashSet<string>(StringComparer.Ordinal);
+            candidates[source] = targets;
+        }
+        targets.Add(target);
+    }
+
+    private static Dictionary<string, string> BuildUnambiguousIdentifierRenameMap(
+        IReadOnlyDictionary<string, HashSet<string>> candidates,
+        ICollection<ReconstructionRepairAction> actions)
+    {
+        Dictionary<string, string> result = new(StringComparer.OrdinalIgnoreCase);
+        foreach ((string source, HashSet<string> targets) in candidates.OrderBy(item => item.Key, StringComparer.Ordinal))
+        {
+            string[] distinctTargets = targets.OrderBy(item => item, StringComparer.Ordinal).ToArray();
+            if (distinctTargets.Length == 1)
+            {
+                result[source] = distinctTargets[0];
+                continue;
+            }
+
+            actions.Add(new ReconstructionRepairAction
+            {
+                Id = "GML-AMBIGUOUS-RESOURCE-REFERENCE",
+                Category = "Broken resource reference after renaming",
+                Description = $"Skipped automatic GML replacement for identifier {source} because it maps to multiple reconstructed assets.",
+                Before = source,
+                After = string.Join(", ", distinctTargets),
+                Confidence = RepairConfidence.ManualReview,
+                Applied = false,
+                Evidence = "The compiled project contained an exact-name collision, so a bare GML identifier cannot be assigned to one target safely.",
+                ManualSteps =
+                [
+                    "Use the connected-resource and VM-assembly views to determine which reconstructed asset each occurrence references.",
+                    "Replace each occurrence individually; do not perform a project-wide search-and-replace for this identifier."
+                ]
+            });
+        }
+        return result;
+    }
+
+    private IReadOnlyCollection<string> GetExtensionFunctionNames()
+    {
+        HashSet<string> names = new(StringComparer.OrdinalIgnoreCase);
+        if (_data.Extensions is null)
+            return names;
+        foreach (UndertaleExtension? extension in _data.Extensions)
+        {
+            if (extension?.Files is null)
+                continue;
+            foreach (UndertaleExtensionFile? file in extension.Files)
+            {
+                if (file?.Functions is null)
+                    continue;
+                foreach (UndertaleExtensionFunction? function in file.Functions)
+                {
+                    string? name = function?.Name?.Content;
+                    if (!string.IsNullOrWhiteSpace(name))
+                        names.Add(name);
+                }
+            }
+        }
+        return names;
+    }
+
+    private static bool IsGameMakerIdentifier(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || !(char.IsLetter(value[0]) || value[0] == '_'))
+            return false;
+        return value.All(character => char.IsLetterOrDigit(character) || character == '_');
+    }
+
     private static string AllocateIdentifier(string source, string fallbackPrefix, int index, HashSet<string> allocated)
     {
         string baseName = MakeGameMakerIdentifier(source, fallbackPrefix + "_" + index);
@@ -2426,19 +2991,132 @@ public sealed partial class GameProjectSession
         public int GetHashCode((string Folder, string Name) obj) =>
             HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Folder), StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Name));
     }
+    private IReadOnlyList<IReadOnlyList<int>> BuildUmtStyleSpriteGroups(IReadOnlyList<ResourceEntryInfo> entries)
+    {
+        int count = entries.Count;
+        int[] parent = Enumerable.Range(0, count).ToArray();
+        byte[] rank = new byte[count];
+        bool[] hasTexturePage = new bool[count];
+        Dictionary<UndertaleEmbeddedTexture, int> pageOwner = new(ReferenceEqualityComparer.Instance);
+
+        int Find(int value)
+        {
+            int root = value;
+            while (parent[root] != root)
+                root = parent[root];
+            while (parent[value] != value)
+            {
+                int next = parent[value];
+                parent[value] = root;
+                value = next;
+            }
+            return root;
+        }
+
+        void Union(int left, int right)
+        {
+            int leftRoot = Find(left);
+            int rightRoot = Find(right);
+            if (leftRoot == rightRoot)
+                return;
+            if (rank[leftRoot] < rank[rightRoot])
+                parent[leftRoot] = rightRoot;
+            else if (rank[leftRoot] > rank[rightRoot])
+                parent[rightRoot] = leftRoot;
+            else
+            {
+                parent[rightRoot] = leftRoot;
+                rank[leftRoot]++;
+            }
+        }
+
+        for (int position = 0; position < count; position++)
+        {
+            UndertaleSprite? sprite = GetAt(_data.Sprites, entries[position].Index) as UndertaleSprite;
+            if (sprite?.Textures is null)
+                continue;
+
+            HashSet<UndertaleEmbeddedTexture> pages = new(ReferenceEqualityComparer.Instance);
+            foreach (UndertaleSprite.TextureEntry? textureEntry in sprite.Textures)
+            {
+                UndertaleEmbeddedTexture? page = textureEntry?.Texture?.TexturePage;
+                if (page is not null)
+                    pages.Add(page);
+            }
+
+            foreach (UndertaleEmbeddedTexture page in pages)
+            {
+                hasTexturePage[position] = true;
+                if (pageOwner.TryGetValue(page, out int owner))
+                    Union(position, owner);
+                else
+                    pageOwner[page] = position;
+            }
+        }
+
+        Dictionary<int, List<int>> groupedByConnectedPages = [];
+        List<int> withoutTexturePages = [];
+        for (int position = 0; position < count; position++)
+        {
+            if (!hasTexturePage[position])
+            {
+                withoutTexturePages.Add(position);
+                continue;
+            }
+
+            int root = Find(position);
+            if (!groupedByConnectedPages.TryGetValue(root, out List<int>? group))
+            {
+                group = [];
+                groupedByConnectedPages[root] = group;
+            }
+            group.Add(position);
+        }
+
+        List<IReadOnlyList<int>> result = groupedByConnectedPages.Values
+            .OrderBy(group => group[0])
+            .Cast<IReadOnlyList<int>>()
+            .ToList();
+
+        // Sprites without texture pages do not touch TextureWorker. Keep them in one
+        // sequential fallback group instead of constructing thousands of empty workers.
+        if (withoutTexturePages.Count > 0)
+            result.Add(withoutTexturePages);
+
+        return result;
+    }
+
     private static int GetReconstructionParallelism(ResourceKind kind)
     {
-        // Only resource writers with isolated output paths and read-only source access are
-        // parallelized. Fallback exporters retain source order because they discover files
-        // by comparing directory contents.
+        // UMT's sprite exporter reserves memory by running approximately one outer
+        // texture-page worker per four logical cores. Other isolated resource writers
+        // can safely use a wider worker pool.
         return kind switch
         {
             ResourceKind.Sprites
-                => Math.Clamp(Math.Max(1, Environment.ProcessorCount) / 2, 2, 8),
+                => Math.Max(1, Math.Max(1, Environment.ProcessorCount) / 4),
             ResourceKind.Sounds or ResourceKind.Paths or ResourceKind.Objects or ResourceKind.Rooms or ResourceKind.AudioGroups
                 => Math.Clamp(Math.Max(1, Environment.ProcessorCount), 2, 12),
             _ => 1
         };
+    }
+
+    private static bool TryClaimPreviewSample(ref long nextAllowedTimestamp)
+    {
+        long now = Stopwatch.GetTimestamp();
+        long interval = Math.Max(1, Stopwatch.Frequency / 4); // at most four previews per second
+        long observed = Volatile.Read(ref nextAllowedTimestamp);
+
+        while (now >= observed)
+        {
+            long next = now + interval;
+            long original = Interlocked.CompareExchange(ref nextAllowedTimestamp, next, observed);
+            if (original == observed)
+                return true;
+            observed = original;
+        }
+
+        return false;
     }
 
     private static byte[]? TryLoadExportedPreview(string outputDirectory, IReadOnlyList<string> files)

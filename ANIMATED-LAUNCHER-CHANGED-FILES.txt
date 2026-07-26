@@ -1,0 +1,39 @@
+SplitGM v0.5.1.0 animated launcher integration
+
+New projects/files:
+- src\SGMVMDLauncher\SGMVMDLauncher.csproj
+- src\SGMVMDLauncher\App.xaml
+- src\SGMVMDLauncher\App.xaml.cs
+- src\SGMVMDLauncher\LauncherWindow.xaml
+- src\SGMVMDLauncher\LauncherWindow.xaml.cs
+- src\SGMVMDLauncher\AuthorizedSplitGmProcess.cs
+- src\SGMVMDLauncher\Resources\Frames\frame_0001.jpg through frame_0412.jpg
+- src\SGMVMDLauncher\Resources\Brand\SplitGM_LauncherLogo.png
+- src\SGMVMDLauncher\Resources\Brand\SGMVMDLauncher.ico
+- src\SGMVMDLauncher.Playback\SGMVMDLauncher.Playback.csproj
+- src\SGMVMDLauncher.Playback\EmbeddedFrameSequencePlayer.cs
+- src\SplitGM.Gui\LauncherAuthorization.cs
+- docs\ANIMATED-LAUNCHER.md
+
+Modified integration files:
+- SplitGM-VM-Decompiler.sln
+- Directory.Build.props
+- Build-Release.ps1
+- Clean-Solution.ps1
+- Apply-v0.5.1.0-Upgrade.ps1
+- src\SplitGM.Gui\App.xaml.cs
+- src\SplitGM.Gui\SplitGM.Gui.csproj
+- README.md
+- CHANGELOG.md
+- docs\TESTING-CHECKLIST.md
+- docs\UPGRADE-TO-v0.5.1.0.md
+- static-validation documentation/results
+
+Branding changes:
+- src\SplitGM.Gui\Resources\Brand\SplitGM_programLogo.png replaced with the supplied logo
+- src\SplitGM.Gui\Resources\Brand\SplitGM.ico regenerated from the supplied logo
+- old src\SplitGM.Gui\Resources\Brand\SplitGM_SPLASH.png removed
+
+Release entry point:
+- Start SGMVMDLauncher.exe
+- SplitGM-VM-Decompiler.exe is intentionally blocked when opened directly

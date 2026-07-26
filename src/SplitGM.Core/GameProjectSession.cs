@@ -95,6 +95,12 @@ public sealed partial class GameProjectSession : IDisposable
         output.AppendLine($"Bytecode version: {Info.BytecodeVersion}");
         output.AppendLine($"Runtime: {Info.RuntimeType}");
         output.AppendLine($"Compatibility: {Info.Compatibility}");
+        output.AppendLine($"Detected profile: {Info.DetectedProfile.DisplayName}");
+        output.AppendLine($"Detection confidence: {Info.DetectedProfile.Confidence}");
+        if (Info.DetectedProfile.Reasons.Count > 0)
+            output.AppendLine($"Detection signals: {string.Join("; ", Info.DetectedProfile.Reasons)}");
+        if (!string.IsNullOrWhiteSpace(Info.RunnerExecutableName))
+            output.AppendLine($"Runner executable name: {Info.RunnerExecutableName}.exe");
         output.AppendLine($"Input size: {FormatBytes(Info.InputFileSize)}");
         output.AppendLine($"Resolution method: {Info.ResolutionMethod}");
         output.AppendLine($"Original input: {Info.OriginalInput}");
@@ -133,6 +139,8 @@ public sealed partial class GameProjectSession : IDisposable
         output.AppendLine($"Runtime type: {Info.RuntimeType}");
         output.AppendLine($"YYC: {Info.IsYyc}");
         output.AppendLine($"Unsupported bytecode flag: {Info.UnsupportedBytecodeVersion}");
+        output.AppendLine($"Detected profile: {Info.DetectedProfile.DisplayName}");
+        output.AppendLine($"Detection confidence: {Info.DetectedProfile.Confidence}");
         output.AppendLine($"Result: {Info.Compatibility}");
         output.AppendLine();
         output.AppendLine(Info.CompatibilityMessage);
@@ -171,22 +179,78 @@ public sealed partial class GameProjectSession : IDisposable
             CodeViewResult created = await Task.Run(
                 () => BuildCodeView(codeIndex),
                 cancellationToken).ConfigureAwait(false);
-            // Keep the viewer responsive on very large games: UMT decompiles on demand rather
-            // than retaining every source document. SplitGM follows that behavior and avoids
-            // caching multi-megabyte entries, while retaining a modest LRU-style set of normal ones.
-            long characterCount = (long)created.Gml.Length + created.Assembly.Length;
-            if (characterCount <= MaximumCachedCodeCharactersPerEntry)
-            {
-                _codeCache[codeIndex] = created;
-                _codeCacheOrder.Enqueue(codeIndex);
-                while (_codeCache.Count > MaximumCachedCodeEntries &&
-                       _codeCacheOrder.TryDequeue(out int oldestIndex))
-                {
-                    if (oldestIndex != codeIndex)
-                        _codeCache.TryRemove(oldestIndex, out _);
-                }
-            }
+            TryCacheCodeView(codeIndex, created);
             return created;
+        }
+        finally
+        {
+            _codeWorkGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Decompiles all root code entries through UMT/Underanalyzer using the same
+    /// shared GlobalDecompileContext + Parallel.For pattern used by UndertaleModTool.
+    /// The operation holds SplitGM's code gate so an interactive preview cannot race
+    /// the batch export, while individual entries are still processed in parallel.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<int, CodeViewResult>> DecompileAllCodeAsync(
+        IProgress<DecompileProgress>? progress = null,
+        int? maximumParallelism = null,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        if (Info.IsYyc)
+            return new Dictionary<int, CodeViewResult>();
+
+        await _codeWorkGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ThrowIfDisposed();
+            int total = _codeEntries.Count;
+            if (total == 0)
+                return new Dictionary<int, CodeViewResult>();
+
+            int workers = Math.Clamp(
+                maximumParallelism ?? Math.Max(1, Environment.ProcessorCount),
+                1,
+                24);
+            CodeViewResult?[] ordered = new CodeViewResult?[total];
+            int completed = 0;
+
+            await Task.Run(() => Parallel.For(
+                0,
+                total,
+                new ParallelOptions
+                {
+                    CancellationToken = cancellationToken,
+                    MaxDegreeOfParallelism = workers
+                },
+                index =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!_codeCache.TryGetValue(index, out CodeViewResult? view))
+                    {
+                        view = BuildCodeView(index);
+                        TryCacheCodeView(index, view);
+                    }
+
+                    ordered[index] = view;
+                    int done = Interlocked.Increment(ref completed);
+                    progress?.Report(new DecompileProgress(
+                        DecompileStage.DecompilingCode,
+                        done,
+                        total,
+                        $"UMT decompiler [{done:N0}/{total:N0}] {_codeEntries[index].Name}"));
+                }), cancellationToken).ConfigureAwait(false);
+
+            Dictionary<int, CodeViewResult> result = new(total);
+            for (int index = 0; index < ordered.Length; index++)
+            {
+                if (ordered[index] is CodeViewResult view)
+                    result[index] = view;
+            }
+            return result;
         }
         finally
         {
@@ -278,8 +342,7 @@ public sealed partial class GameProjectSession : IDisposable
         {
             try
             {
-                DecompileContext context = new(_globalContext, code, _decompileSettings);
-                gml = context.DecompileToString();
+                gml = UmtNativePipeline.DecompileCode(_data, code, _globalContext, _decompileSettings);
             }
             catch (Exception exception)
             {
@@ -289,11 +352,7 @@ public sealed partial class GameProjectSession : IDisposable
 
             try
             {
-                IList<UndertaleVariable> variables = _data.Variables ?? new List<UndertaleVariable>();
-                assembly = code.Disassemble(
-                    variables,
-                    _data.CodeLocals?.For(code),
-                    ignoreMissingCodeLocals: true);
+                assembly = UmtNativePipeline.DisassembleCode(_data, code);
             }
             catch (Exception exception)
             {
@@ -336,6 +395,24 @@ public sealed partial class GameProjectSession : IDisposable
             details.ToString(),
             decompileError,
             assemblyError);
+    }
+
+    private void TryCacheCodeView(int codeIndex, CodeViewResult created)
+    {
+        // UMT loads source on demand. SplitGM keeps only a bounded set of normal-size
+        // documents and never pins giant decompilations in memory.
+        long characterCount = (long)created.Gml.Length + created.Assembly.Length;
+        if (characterCount > MaximumCachedCodeCharactersPerEntry)
+            return;
+
+        _codeCache[codeIndex] = created;
+        _codeCacheOrder.Enqueue(codeIndex);
+        while (_codeCache.Count > MaximumCachedCodeEntries &&
+               _codeCacheOrder.TryDequeue(out int oldestIndex))
+        {
+            if (oldestIndex != codeIndex)
+                _codeCache.TryRemove(oldestIndex, out _);
+        }
     }
 
     private IReadOnlyList<ResourceEntryInfo> BuildResourceEntries(ResourceKind kind)

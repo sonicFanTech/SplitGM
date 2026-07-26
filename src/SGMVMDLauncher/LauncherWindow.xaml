@@ -1,0 +1,70 @@
+<Window x:Class="SGMVMDLauncher.LauncherWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SplitGM Launcher"
+        Width="960" Height="540"
+        MinWidth="640" MinHeight="360"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        Background="Black"
+        Icon="Resources/Brand/SGMVMDLauncher.ico"
+        ShowInTaskbar="True"
+        Topmost="True"
+        KeyDown="Window_KeyDown"
+        Closed="Window_Closed">
+    <Grid Background="Black">
+        <Image x:Name="FrameImage"
+               Stretch="Uniform"
+               RenderOptions.BitmapScalingMode="HighQuality"
+               SnapsToDevicePixels="True"/>
+
+        <Border x:Name="ErrorPanel"
+                Visibility="Collapsed"
+                Background="#F20A0D14"
+                BorderBrush="#FF3C526E"
+                BorderThickness="1"
+                CornerRadius="14"
+                Padding="28"
+                Width="650"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Image Grid.Column="0"
+                       Source="Resources/Brand/SplitGM_LauncherLogo.png"
+                       Width="128" Height="128"
+                       Stretch="Uniform"
+                       Margin="0,0,22,0"/>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="SplitGM could not start"
+                               Foreground="White"
+                               FontFamily="Segoe UI"
+                               FontSize="23"
+                               FontWeight="SemiBold"/>
+                    <TextBlock x:Name="ErrorText"
+                               Margin="0,10,0,18"
+                               Foreground="#FFC7D2E2"
+                               FontFamily="Segoe UI"
+                               FontSize="14"
+                               TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="RetryButton"
+                                Content="Try Again"
+                                Padding="18,8"
+                                Margin="0,0,10,0"
+                                Click="RetryButton_Click"/>
+                        <Button Content="Close"
+                                Padding="18,8"
+                                Click="CloseButton_Click"/>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

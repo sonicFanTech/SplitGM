@@ -353,6 +353,14 @@ public sealed partial class GameProjectSession
                 string path = Path.Combine(outputDirectory, safeName + payload.Extension);
                 File.WriteAllBytes(path, payload.Data);
                 CountFile(path);
+                foreach (string waveformPath in ExportWaveformFiles(
+                             Path.Combine(outputDirectory, safeName),
+                             payload.Data,
+                             payload.Format,
+                             cancellationToken))
+                {
+                    CountFile(waveformPath);
+                }
                 break;
             }
             case ResourceKind.EmbeddedAudio:
@@ -360,10 +368,18 @@ public sealed partial class GameProjectSession
                 UndertaleEmbeddedAudio? audio = GetAt(_data.EmbeddedAudio, index) as UndertaleEmbeddedAudio;
                 if (audio is not null)
                 {
-                    string extension = DetectAudioFormat(audio.Data).Extension;
+                    (string format, string extension) = DetectAudioFormat(audio.Data);
                     string path = Path.Combine(outputDirectory, safeName + extension);
                     File.WriteAllBytes(path, audio.Data);
                     CountFile(path);
+                    foreach (string waveformPath in ExportWaveformFiles(
+                                 Path.Combine(outputDirectory, safeName),
+                                 audio.Data,
+                                 format,
+                                 cancellationToken))
+                    {
+                        CountFile(waveformPath);
+                    }
                 }
                 break;
             }
@@ -648,6 +664,18 @@ public sealed partial class GameProjectSession
                 File.WriteAllBytes(path, payload.Data);
                 files++;
                 bytes += payload.Data.LongLength;
+                string waveformBase = Path.Combine(
+                    groupDirectory,
+                    $"{soundIndex:D6}_{OutputPathHelper.SafeFileName(sound.Name?.Content ?? $"sound_{soundIndex}")}");
+                foreach (string waveformPath in ExportWaveformFiles(
+                             waveformBase,
+                             payload.Data,
+                             payload.Format,
+                             cancellationToken))
+                {
+                    files++;
+                    bytes += new FileInfo(waveformPath).Length;
+                }
             }
             catch (OperationCanceledException)
             {
@@ -688,7 +716,7 @@ public sealed partial class GameProjectSession
             ResourceKind.Rooms => BuildRoomPreview(index, cancellationToken),
             ResourceKind.Objects => BuildObjectPreview(index),
             ResourceKind.Sounds => BuildSoundPreview(index, cancellationToken),
-            ResourceKind.EmbeddedAudio => BuildEmbeddedAudioPreview(index),
+            ResourceKind.EmbeddedAudio => BuildEmbeddedAudioPreview(index, cancellationToken),
             ResourceKind.AudioGroups => BuildAudioGroupPreview(index),
             ResourceKind.Shaders => BuildTextPreview(kind, index, "Shader source"),
             ResourceKind.Strings => BuildTextPreview(kind, index, "String data"),
@@ -865,9 +893,23 @@ public sealed partial class GameProjectSession
         UndertaleSound? sound = GetAt(_data.Sounds, index) as UndertaleSound;
         string name = sound?.Name?.Content ?? $"Sound #{index}";
         AudioPreviewInfo audio;
+        AudioWaveformInfo? waveform = null;
         try
         {
             AudioPayload payload = GetAudioPayload(index, cancellationToken);
+            try
+            {
+                waveform = AudioWaveformService.Analyze(payload.Data, payload.Format, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                // Playback/export can still work when a platform decoder cannot build a waveform.
+            }
+
             audio = new AudioPreviewInfo(
                 payload.Format,
                 payload.Extension,
@@ -906,25 +948,48 @@ public sealed partial class GameProjectSession
             ResourceIndex = index,
             Name = name,
             PreviewKind = ResourcePreviewKind.Audio,
-            Subtitle = $"{audio.Format} • {audio.Source} • {FormatBytes(audio.DataLength)}",
+            Subtitle = waveform is null
+                ? $"{audio.Format} • {audio.Source} • {FormatBytes(audio.DataLength)}"
+                : $"{audio.Format} • {waveform.DurationSeconds:0.###} s • {waveform.SampleRate:N0} Hz • {waveform.Channels} channel(s)",
             Details = ObjectInspector.Format(sound, name),
-            Audio = audio
+            Audio = audio,
+            Waveform = waveform
         };
     }
 
-    private ResourcePreviewData BuildEmbeddedAudioPreview(int index)
+    private ResourcePreviewData BuildEmbeddedAudioPreview(int index, CancellationToken cancellationToken)
     {
         UndertaleEmbeddedAudio? audio = GetAt(_data.EmbeddedAudio, index) as UndertaleEmbeddedAudio;
         string name = $"Embedded Audio {index}";
         (string format, string extension) = DetectAudioFormat(audio?.Data);
+        AudioWaveformInfo? waveform = null;
+        if (audio?.Data is { Length: > 0 } payload)
+        {
+            try
+            {
+                waveform = AudioWaveformService.Analyze(payload, format, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                // Keep the raw audio preview available even if waveform decoding fails.
+            }
+        }
+
         return new ResourcePreviewData
         {
             ResourceKind = ResourceKind.EmbeddedAudio,
             ResourceIndex = index,
             Name = name,
             PreviewKind = ResourcePreviewKind.Audio,
-            Subtitle = $"{format} • {FormatBytes(audio?.Data?.LongLength ?? 0)}",
+            Subtitle = waveform is null
+                ? $"{format} • {FormatBytes(audio?.Data?.LongLength ?? 0)}"
+                : $"{format} • {waveform.DurationSeconds:0.###} s • {waveform.SampleRate:N0} Hz • {waveform.Channels} channel(s)",
             Details = ObjectInspector.Format(audio, name),
+            Waveform = waveform,
             Audio = new AudioPreviewInfo(
                 format,
                 extension,
@@ -1327,7 +1392,7 @@ public sealed partial class GameProjectSession
 
         UndertaleData? loaded;
         using (FileStream stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read))
-            loaded = UndertaleIO.Read(stream);
+            loaded = UmtNativePipeline.ReadGameData(stream);
         lock (_audioGroupLock)
             _audioGroupData[groupId] = loaded;
         return loaded;
@@ -1835,6 +1900,42 @@ public sealed partial class GameProjectSession
         byte green = (byte)((gameMakerColor >> 8) & 0xFF);
         byte blue = (byte)((gameMakerColor >> 16) & 0xFF);
         return MagickColor.FromRgba(red, green, blue, alpha);
+    }
+
+    private static IReadOnlyList<string> ExportWaveformFiles(
+        string basePathWithoutExtension,
+        byte[] audioData,
+        string format,
+        CancellationToken cancellationToken)
+    {
+        List<string> written = [];
+        try
+        {
+            AudioWaveformInfo waveform = AudioWaveformService.Analyze(
+                audioData,
+                format,
+                cancellationToken);
+            string svgPath = basePathWithoutExtension + ".waveform.svg";
+            string jsonPath = basePathWithoutExtension + ".waveform.json";
+            File.WriteAllText(svgPath, AudioWaveformService.ToSvg(waveform), new UTF8Encoding(false));
+            File.WriteAllText(jsonPath, AudioWaveformService.ToJson(waveform), new UTF8Encoding(false));
+            written.Add(svgPath);
+            written.Add(jsonPath);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            string errorPath = basePathWithoutExtension + ".waveform.error.txt";
+            File.WriteAllText(
+                errorPath,
+                "SplitGM could not decode this asset for waveform display. The original audio export is unchanged.\n\n" + exception,
+                new UTF8Encoding(false));
+            written.Add(errorPath);
+        }
+        return written;
     }
 
     private static (string Format, string Extension) DetectAudioFormat(byte[]? data)

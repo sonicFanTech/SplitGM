@@ -34,7 +34,9 @@ public partial class MainWindow : Window
     private int _currentResourceIndex = -1;
     private int _currentSpriteFrame;
     private string? _lastOutputDirectory;
+    private string? _currentTempRunDirectory;
     private bool _isBusy;
+    private bool _isTempRunPreparing;
 
     public MainWindow()
     {
@@ -51,7 +53,7 @@ public partial class MainWindow : Window
 
         CodeDocumentRenderer.SetText(
             GmlViewer,
-            "// Open a GameMaker VM game to begin.\n// SplitGM v0.5.0 adds stable .splitgmproj output and experimental reconstructed .yyp project generation.",
+            "// Open a GameMaker VM game to begin.\n// SplitGM v0.5.1.0 adds stable .splitgmproj output and experimental reconstructed .yyp project generation.",
             CodeDocumentMode.Gml,
             includeLineNumbers: true);
         CodeDocumentRenderer.SetText(
@@ -128,6 +130,7 @@ public partial class MainWindow : Window
         {
             AppendLog(LogMessage.Info($"Opening: {Path.GetFullPath(path)}"));
             _session = await _loader.LoadAsync(path, progress, log, _operationCancellation.Token);
+            DetectedGameProfile effectiveProfile = GetEffectiveGameProfile();
 
             PopulateRootTree();
             ShowGeneralInformation();
@@ -142,10 +145,13 @@ public partial class MainWindow : Window
                 $"{_session.ResourceCounts.Objects:N0} objects • " +
                 $"{_session.ResourceCounts.Rooms:N0} rooms • " +
                 $"{_session.ResourceCounts.Sprites:N0} sprites";
+            StatusDetailTextBlock.Text += $" â€¢ Profile: {effectiveProfile.DisplayName}";
             ProgressBar.Value = 100;
             _settings.LastOpenedGame = Path.GetFullPath(path);
             _settings.Save();
             OpenLastGameMenuItem.IsEnabled = true;
+            AppendLog(LogMessage.Info(
+                $"Effective profile: {effectiveProfile.DisplayName}; {effectiveProfile.SelectionDescription}; confidence {effectiveProfile.Confidence}."));
             AppendLog(LogMessage.Success($"Loaded {_session.Info.DisplayName}."));
             CompleteOperationWindow(true, $"Loaded {_session.Info.DisplayName} with {_session.ResourceCounts.RootCodeEntries:N0} code entries.");
         }
@@ -553,9 +559,27 @@ public partial class MainWindow : Window
         PreviewPropertiesTextBox.Text = BuildPreviewProperties(preview);
         PreviewStatusText.Text = preview.Subtitle ?? "Preview ready.";
 
-        if (!string.IsNullOrWhiteSpace(preview.Text) && preview.ImagePng is null)
+        ResourceTextViewer.Visibility = Visibility.Collapsed;
+        PreviewImageScrollViewer.Visibility = Visibility.Collapsed;
+        RoomViewer.Visibility = Visibility.Collapsed;
+        AudioWaveformViewer.Visibility = Visibility.Collapsed;
+        AudioWaveformViewer.Waveform = null;
+
+        if (preview.Room is not null)
         {
-            PreviewImageScrollViewer.Visibility = Visibility.Collapsed;
+            RoomViewer.Visibility = Visibility.Visible;
+            RoomViewer.LoadRoom(preview.ImagePng, preview.Room);
+        }
+        else if (preview.PreviewKind == ResourcePreviewKind.Audio && preview.Waveform is not null)
+        {
+            PreviewImageScrollViewer.Visibility = Visibility.Visible;
+            PreviewImage.Source = null;
+            AudioWaveformViewer.Waveform = preview.Waveform;
+            AudioWaveformViewer.Visibility = Visibility.Visible;
+            PreviewEmptyText.Visibility = Visibility.Collapsed;
+        }
+        else if (!string.IsNullOrWhiteSpace(preview.Text) && preview.ImagePng is null)
+        {
             ResourceTextViewer.Visibility = Visibility.Visible;
             CodeDocumentRenderer.SetText(
                 ResourceTextViewer,
@@ -565,7 +589,6 @@ public partial class MainWindow : Window
         }
         else
         {
-            ResourceTextViewer.Visibility = Visibility.Collapsed;
             PreviewImageScrollViewer.Visibility = Visibility.Visible;
             PreviewImage.Source = BitmapSourceFactory.FromBytes(preview.ImagePng);
             PreviewEmptyText.Visibility = preview.ImagePng is null ? Visibility.Visible : Visibility.Collapsed;
@@ -660,6 +683,22 @@ public partial class MainWindow : Window
                 output.AppendLine($"Path / status: {preview.Audio.ExternalPath}");
         }
 
+        if (preview.Waveform is not null)
+        {
+            output.AppendLine();
+            output.AppendLine("Decoded waveform");
+            output.AppendLine("----------------");
+            output.AppendLine($"Duration: {preview.Waveform.DurationSeconds:0.###} seconds");
+            output.AppendLine($"Sample rate: {preview.Waveform.SampleRate:N0} Hz");
+            output.AppendLine($"Channels: {preview.Waveform.Channels:N0}");
+            output.AppendLine($"Frames inspected: {preview.Waveform.FramesRead:N0}");
+            output.AppendLine($"Display points: {preview.Waveform.PointCount:N0}");
+            output.AppendLine($"Absolute peak: {preview.Waveform.AbsolutePeak:0.000000}");
+            output.AppendLine($"RMS: {preview.Waveform.Rms:0.000000}");
+            output.AppendLine($"Decoder: {preview.Waveform.Decoder}");
+            output.AppendLine($"Complete scan: {preview.Waveform.IsComplete}");
+        }
+
         if (preview.Room is not null)
         {
             output.AppendLine();
@@ -695,9 +734,11 @@ public partial class MainWindow : Window
         _currentResourceIndex = -1;
         ExportSelectedButton.IsEnabled = false;
         CurrentItemTitle.Text = _session.Info.DisplayName;
+        DetectedGameProfile effectiveProfile = GetEffectiveGameProfile();
         CurrentItemSubtitle.Text =
             $"GameMaker {_session.Info.GameMakerVersion} • bytecode {_session.Info.BytecodeVersion} • {_session.Info.RuntimeType}";
-        DetailsTextBox.Text = _session.GetGeneralInformationText();
+        CurrentItemSubtitle.Text += $" | Profile: {effectiveProfile.DisplayName}";
+        DetailsTextBox.Text = BuildEffectiveProfileText() + _session.GetGeneralInformationText();
         CodeDocumentRenderer.SetText(GmlViewer, "// Select a code entry to view reconstructed GML.", CodeDocumentMode.Gml,
             LineNumbersCheckBox.IsChecked == true);
         CodeDocumentRenderer.SetText(AssemblyViewer, "; Select a code entry to view VM assembly.", CodeDocumentMode.Assembly,
@@ -1397,6 +1438,8 @@ public partial class MainWindow : Window
         ExportButton.IsEnabled = false;
         ExportResourceTypeMenuItem.IsEnabled = false;
         ExportSelectedButton.IsEnabled = false;
+        RunGameFromTempMenuItem.IsEnabled = false;
+        OpenCurrentTempRunFolderMenuItem.IsEnabled = Directory.Exists(_currentTempRunDirectory);
         CopyDiagnosticButton.IsEnabled = false;
         AnalyzeSelectedMenuItem.IsEnabled = false;
         UnusedCandidatesMenuItem.IsEnabled = false;
@@ -1406,13 +1449,14 @@ public partial class MainWindow : Window
         CompatibilityBadge.Foreground = (Brush)FindResource("MutedTextBrush");
         ResourceTreeCountText.Text = string.Empty;
         StatusDetailTextBlock.Text = string.Empty;
+        UpdateToolsMenuVisibility();
         if (clearDisplay)
             ResetWelcomeDisplay();
     }
 
     private void ResetWelcomeDisplay()
     {
-        CurrentItemTitle.Text = "Welcome to SplitGM v0.5.0";
+        CurrentItemTitle.Text = "Welcome to SplitGM v0.5.1.0";
         CurrentItemSubtitle.Text = "Open a GameMaker game to browse every recoverable resource.";
         DetailsTextBox.Text = BuildWelcomeText();
         PreviewPropertiesTextBox.Text = BuildWelcomeText();
@@ -1420,6 +1464,8 @@ public partial class MainWindow : Window
         CodeDocumentRenderer.SetText(AssemblyViewer, "; Open a game and select a code entry.", CodeDocumentMode.Assembly, true);
         PreviewImage.Source = null;
         PreviewEmptyText.Visibility = Visibility.Visible;
+        AudioWaveformViewer.Waveform = null;
+        RoomViewer.Clear();
         ResetSpecializedPreviewPanels();
         MainTabControl.SelectedItem = DetailsTab;
         StatusTextBlock.Text = "Ready. Open or drop a GameMaker file.";
@@ -1430,6 +1476,10 @@ public partial class MainWindow : Window
     {
         SpriteControlsPanel.Visibility = Visibility.Collapsed;
         AudioControlsPanel.Visibility = Visibility.Collapsed;
+        AudioWaveformViewer.Visibility = Visibility.Collapsed;
+        AudioWaveformViewer.Waveform = null;
+        RoomViewer.Visibility = Visibility.Collapsed;
+        RoomViewer.Clear();
         ExportAudioGroupButton.Visibility = Visibility.Collapsed;
         ExportAudioGroupMenuItem.IsEnabled = false;
         ObjectEventsTab.Visibility = Visibility.Collapsed;
@@ -1465,7 +1515,10 @@ public partial class MainWindow : Window
         OpenGameButton.IsEnabled = !busy;
         CloseGameButton.IsEnabled = !busy && _session is not null;
         ExportButton.IsEnabled = !busy && _session is not null;
-        ReconstructedYypMenuItem.IsEnabled = !busy && _session is not null;
+        ReconstructedYypMenuItem.IsEnabled = !busy && _session is not null && _settings.EnableReconstructedYypExport;
+        RunGameFromTempMenuItem.IsEnabled = !busy && !_isTempRunPreparing && _session is not null;
+        OpenCurrentTempRunFolderMenuItem.IsEnabled = !busy && Directory.Exists(_currentTempRunDirectory);
+        CleanOldTempRunFoldersMenuItem.IsEnabled = !busy;
         ExportResourceTypeMenuItem.IsEnabled = !busy && _session is not null;
         ExportSelectedButton.IsEnabled = !busy && _session is not null && _currentResourceKind is not null;
         SearchButton.IsEnabled = !busy && _session is not null && !_session.Info.IsYyc;
@@ -1481,6 +1534,53 @@ public partial class MainWindow : Window
             StatusTextBlock.Text = status;
         if (!busy && ProgressBar.Value < 100)
             ProgressBar.Value = 0;
+        UpdateToolsMenuVisibility();
+    }
+
+    private void UpdateToolsMenuVisibility()
+    {
+        Visibility experimentalVisibility = _settings.EnableReconstructedYypExport
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        ReconstructedYypMenuItem.Visibility = experimentalVisibility;
+        ExperimentalToolsSeparator.Visibility = experimentalVisibility;
+        TempRunToolsSeparator.Visibility = Visibility.Visible;
+        RunGameFromTempMenuItem.IsEnabled = !_isBusy && !_isTempRunPreparing && _session is not null;
+    }
+
+    private DetectedGameProfile GetEffectiveGameProfile()
+    {
+        if (_session is null)
+        {
+            return new DetectedGameProfile(
+                GameProfile.Generic,
+                GameProfileConfidence.Low,
+                ["No game is loaded."]);
+        }
+
+        return GameProfileSupport.ApplyPreference(
+            _session.Info.DetectedProfile,
+            _settings.GameProfilePreference);
+    }
+
+    private string BuildEffectiveProfileText()
+    {
+        DetectedGameProfile profile = GetEffectiveGameProfile();
+        StringBuilder output = new();
+        output.AppendLine("Effective game profile");
+        output.AppendLine("----------------------");
+        output.AppendLine($"Profile: {profile.DisplayName}");
+        output.AppendLine($"Selection: {profile.SelectionDescription}");
+        output.AppendLine($"Preference: {GameProfileSupport.GetPreferenceDisplayName(_settings.GameProfilePreference)}");
+        output.AppendLine($"Confidence: {profile.Confidence}");
+        if (profile.Reasons.Count > 0)
+        {
+            output.AppendLine("Signals/reasons:");
+            foreach (string reason in profile.Reasons)
+                output.AppendLine("- " + reason);
+        }
+        output.AppendLine();
+        return output.ToString();
     }
 
     private void UpdateCompatibilityBadge()
@@ -1559,17 +1659,16 @@ public partial class MainWindow : Window
 
     private static string BuildWelcomeText()
     {
-        return "SplitGM-VM Decompiler v0.5.0\r\n" +
+        return "SplitGM-VM Decompiler v0.5.1.0\r\n" +
                "================================\r\n\r\n" +
-               "This release adds relationship navigation, progress windows, settings, and a cleaner menu-driven interface.\r\n\r\n" +
-               "• Browse resources without modifying the game.\r\n" +
-               "• Preview sprite frames, rooms, object sprites, backgrounds, fonts, and texture pages.\r\n" +
-               "• Inspect room layers, instances, and recoverable tile records.\r\n" +
-               "• Play WAV/OGG/MP3 audio and export one sound or a complete audio group.\r\n" +
-               "• View large GML and VM assembly with AvalonEdit and background decompilation.\r\n" +
-               "• Extract all recoverable resources alongside the organized reconstructed project.\r\n" +
-               "• Double-click object events and room instances to open connected GML code.\r\n" +
-               "• Analyze callers, callees, room transitions, inheritance, asset references, globals, and unused candidates.\r\n" +
+               "This release focuses on fast UMT-native decompilation and automatic reconstructed-project repair.\r\n\r\n" +
+               "• Open and decompile VM projects through the direct UndertaleModLib/Underanalyzer pipeline.\r\n" +
+               "• Preserve original reconstructed output, apply confidence-rated repairs, and create detailed manual steps.\r\n" +
+               "• Run static compile-preflight checks for JSON, names, paths, missing files, GML balance, and unresolved calls.\r\n" +
+               "• View real decoded audio waveforms and export waveform SVG/JSON diagnostics.\r\n" +
+               "• Inspect rooms in a dedicated read-only UMT-style viewer with zoom, fit, grid, layers, instances, and tiles.\r\n" +
+               "• Browse and export resources without modifying or saving back to the game.\r\n" +
+               "• Navigate connected code, relationships, room transitions, inheritance, asset references, globals, and unused candidates.\r\n" +
                "• Configure SplitGM through SplitGM_Settings.ini.\r\n\r\n" +
                "SplitGM uses UndertaleModLib and Underanalyzer from UndertaleModTool under GPLv3.";
     }

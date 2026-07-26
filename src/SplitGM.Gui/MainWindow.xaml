@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:SplitGM.Gui"
         xmlns:avalonEdit="http://icsharpcode.net/sharpdevelop/avalonedit"
-        Title="SplitGM-VM Decompiler v0.5.0"
+        Title="SplitGM-VM Decompiler v0.5.1.0"
         Icon="Resources/Brand/SplitGM.ico"
         Width="1460" Height="900" MinWidth="1080" MinHeight="700"
         WindowStartupLocation="CenterScreen"
@@ -98,10 +98,20 @@
                 <MenuItem Header="_Refresh current preview" InputGestureText="F5" Click="RefreshCurrentPreview_Click"/>
             </MenuItem>
             <MenuItem Header="_Tools">
+                <MenuItem x:Name="RunGameFromTempMenuItem"
+                          Header="Run Game from TEMP"
+                          IsEnabled="False" Click="RunGameFromTempMenuItem_Click"/>
+                <MenuItem x:Name="OpenCurrentTempRunFolderMenuItem"
+                          Header="Open Current TEMP Run Folder"
+                          IsEnabled="False" Click="OpenCurrentTempRunFolderMenuItem_Click"/>
+                <MenuItem x:Name="CleanOldTempRunFoldersMenuItem"
+                          Header="Clean Old TEMP Run Folders"
+                          Click="CleanOldTempRunFoldersMenuItem_Click"/>
+                <Separator x:Name="TempRunToolsSeparator"/>
                 <MenuItem x:Name="ReconstructedYypMenuItem"
                           Header="Decompile to Reconstructed .yyp Project..."
                           IsEnabled="False" Click="DecompileReconstructedYypButton_Click"/>
-                <Separator/>
+                <Separator x:Name="ExperimentalToolsSeparator"/>
                 <MenuItem Header="Search _all code..." InputGestureText="Ctrl+F" Click="ShowSearchTab_Click"/>
                 <MenuItem x:Name="AnalyzeSelectedMenuItem" Header="Analyze selected _relationships" IsEnabled="False" Click="AnalyzeSelectedRelationships_Click"/>
                 <MenuItem x:Name="UnusedCandidatesMenuItem" Header="Find _unused-resource candidates" IsEnabled="False" Click="AnalyzeUnusedResources_Click"/>
@@ -135,7 +145,7 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Border Padding="11,6" Margin="0,0,10,0" Background="#19243A"
                             BorderBrush="{StaticResource Accent2Brush}" BorderThickness="1">
-                        <TextBlock Text="v0.5.0 RECONSTRUCTED PROJECT EXPORT" Foreground="{StaticResource AccentBrush}"
+                        <TextBlock Text="v0.5.1.0 RECONSTRUCTED PROJECT EXPORT" Foreground="{StaticResource AccentBrush}"
                                    FontWeight="Bold"/>
                     </Border>
                     <TextBlock x:Name="CompatibilityBadge" Text="NO GAME LOADED"
@@ -221,7 +231,7 @@
                             BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
                         <Grid>
                             <StackPanel>
-                                <TextBlock x:Name="CurrentItemTitle" Text="Welcome to SplitGM v0.5.0"
+                                <TextBlock x:Name="CurrentItemTitle" Text="Welcome to SplitGM v0.5.1.0"
                                            FontSize="17" FontWeight="Bold"/>
                                 <TextBlock x:Name="CurrentItemSubtitle"
                                            Text="Open a GameMaker game to browse every recoverable resource."
@@ -274,11 +284,14 @@
                                             <Grid MinWidth="320" MinHeight="220">
                                                 <Image x:Name="PreviewImage" Stretch="None" HorizontalAlignment="Center"
                                                        VerticalAlignment="Center" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                                                <local:AudioWaveformControl x:Name="AudioWaveformViewer" Visibility="Collapsed"
+                                                                            MinWidth="320" MinHeight="220"/>
                                                 <TextBlock x:Name="PreviewEmptyText" Text="No graphical preview is available for this resource."
                                                            Foreground="{StaticResource MutedTextBrush}" FontStyle="Italic"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             </Grid>
                                         </ScrollViewer>
+                                        <local:ReadOnlyUmtRoomViewer x:Name="RoomViewer" Visibility="Collapsed"/>
                                         <avalonEdit:TextEditor x:Name="ResourceTextViewer" Visibility="Collapsed"
                                                                Background="{StaticResource EditorBrush}"
                                                                Foreground="{StaticResource TextBrush}"
