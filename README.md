@@ -18,6 +18,10 @@
 
 </div>
 
+##Trailer / Showcase Video
+
+https://www.youtube.com/watch?v=--CGDXPK9Jc
+
 ---
 
 ## SplitGM v0.5.1.0
