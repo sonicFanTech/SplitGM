@@ -14,7 +14,7 @@
 
 **[Download the latest release](../../releases/latest) · [View all releases](../../releases) · [Report a problem](../../issues)**
 
-**[Watch the SplitGM v0.5.1.0 trailer / showcase](https://www.youtube.com/watch?v=--CGDXPK9Jc)**
+**[SplitGM Trailer / Showcase Video](https://www.youtube.com/watch?v=--CGDXPK9Jc)**
 
 </div>
 
